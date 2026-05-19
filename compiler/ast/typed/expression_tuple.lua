@@ -1,6 +1,7 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TTuple = require("compiler.ast.typed.type_tuple").TTuple
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyTuple : TypedExpression
 ---@field kind "TyTuple"
@@ -89,6 +90,18 @@ function TyTuple:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs = newEqs
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyTuple:appendBytecode(ops, locations, binary, hash)
+    for _, item in ipairs(self.items) do
+        ops, locations = item:appendBytecode(ops, locations, binary, hash)
+    end
+    return bytecode.appendMakeObject(bytecode.OBJECT_KIND_TUPLE, #self.items, self.location, ops, locations)
 end
 
 return { TyTuple = TyTuple }

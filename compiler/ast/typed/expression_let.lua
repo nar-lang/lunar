@@ -1,5 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyLet : TypedExpression
 ---@field kind "TyLet"
@@ -95,6 +96,19 @@ function TyLet:appendEquations(eqs, loc, localDefs, ctx, stack)
         return nil, err
     end
     return newEqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyLet:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.value:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.pattern:appendBytecode(ops, locations, binary, hash)
+    ops, locations = bytecode.appendJump(0, true, self.location, ops, locations)
+    ops, locations = bytecode.appendSwapPop(self.location, bytecode.SWAP_POP_MODE_POP, ops, locations)
+    return self.body:appendBytecode(ops, locations, binary, hash)
 end
 
 return { TyLet = TyLet }

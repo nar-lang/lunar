@@ -1,5 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyLocal : TypedExpression
 ---@field kind "TyLocal"
@@ -63,6 +64,15 @@ function TyLocal:appendEquations(eqs, loc, localDefs, ctx, stack)
         return nil, string.format("local `%s` not found", self.name)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyLocal:appendBytecode(ops, locations, binary, hash)
+    return bytecode.appendLoadLocal(self.name, self.location, ops, locations, binary, hash)
 end
 
 return { TyLocal = TyLocal }

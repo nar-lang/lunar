@@ -5,6 +5,7 @@ local TData = require("compiler.ast.typed.type_data").TData
 local DataOption = require("compiler.ast.typed.type_data").DataOption
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPList : TypedPattern
 ---@field kind "TyPList"
@@ -114,6 +115,18 @@ function TyPList:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPList:appendBytecode(ops, locations, binary, hash)
+    for _, item in ipairs(self.items) do
+        ops, locations = item:appendBytecode(ops, locations, binary, hash)
+    end
+    return bytecode.appendMakePatternLong(bytecode.PATTERN_KIND_LIST, #self.items, self.location, ops, locations, binary)
 end
 
 return { TyPList = TyPList }

@@ -2,6 +2,7 @@ local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TRecord = require("compiler.ast.typed.type_record").TRecord
 local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyUpdate : TypedExpression
 ---@field kind "TyUpdate"
@@ -137,6 +138,25 @@ function TyUpdate:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, defType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyUpdate:appendBytecode(ops, locations, binary, hash)
+    if self.moduleName ~= nil and self.moduleName ~= "" then
+        local id = builtins.makeFullIdentifier(self.moduleName, self.recordName)
+        ops, locations = bytecode.appendLoadGlobal(hash.funcsMap[id], self.location, ops, locations)
+    else
+        ops, locations = bytecode.appendLoadLocal(self.recordName, self.location, ops, locations, binary, hash)
+    end
+    for _, f in ipairs(self.fields) do
+        ops, locations = f.value:appendBytecode(ops, locations, binary, hash)
+        ops, locations = bytecode.appendUpdate(f.name, f.location, ops, locations, binary, hash)
+    end
+    return ops, locations
 end
 
 return { TyUpdate = TyUpdate }

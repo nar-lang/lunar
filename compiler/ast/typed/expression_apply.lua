@@ -1,6 +1,7 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TFunc = require("compiler.ast.typed.type_func").TFunc
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyApply : TypedExpression
 ---@field kind "TyApply"
@@ -100,6 +101,19 @@ function TyApply:appendEquations(eqs, loc, localDefs, ctx, stack)
         end
     end
     return newEqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyApply:appendBytecode(ops, locations, binary, hash)
+    for _, arg in ipairs(self.args) do
+        ops, locations = arg:appendBytecode(ops, locations, binary, hash)
+    end
+    ops, locations = self.func:appendBytecode(ops, locations, binary, hash)
+    return bytecode.appendApply(#self.args, self.location, ops, locations)
 end
 
 return { TyApply = TyApply }

@@ -1,6 +1,7 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local SimpleAnything = require("compiler.ast.typed.simple_pattern").SimpleAnything
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPNamed : TypedPattern
 ---@field kind "TyPNamed"
@@ -67,6 +68,15 @@ function TyPNamed:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPNamed:appendBytecode(ops, locations, binary, hash)
+    return bytecode.appendMakePattern(bytecode.PATTERN_KIND_NAMED, self.name, 0, self.location, ops, locations, binary, hash)
 end
 
 return { TyPNamed = TyPNamed }

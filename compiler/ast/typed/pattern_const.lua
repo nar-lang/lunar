@@ -4,6 +4,7 @@ local SimpleLiteral = require("compiler.ast.typed.simple_pattern").SimpleLiteral
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local TData = require("compiler.ast.typed.type_data").TData
 local DataOption = require("compiler.ast.typed.type_data").DataOption
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPConst : TypedPattern
 ---@field kind "TyPConst"
@@ -91,6 +92,16 @@ function TyPConst:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPConst:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.value:appendBytecode(bytecode.STACK_KIND_PATTERN, self.location, ops, locations, binary, hash)
+    return bytecode.appendMakePattern(bytecode.PATTERN_KIND_CONST, "", 0, self.location, ops, locations, binary, hash)
 end
 
 return { TyPConst = TyPConst }

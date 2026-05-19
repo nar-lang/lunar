@@ -3,6 +3,7 @@ local newEquation = require("compiler.ast.typed.equation").newEquation
 local TFunc = require("compiler.ast.typed.type_func").TFunc
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPOption : TypedPattern
 ---@field kind "TyPOption"
@@ -132,6 +133,21 @@ function TyPOption:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPOption:appendBytecode(ops, locations, binary, hash)
+    for _, arg in ipairs(self.args) do
+        ops, locations = arg:appendBytecode(ops, locations, binary, hash)
+    end
+    return bytecode.appendMakePattern(
+        bytecode.PATTERN_KIND_DATA_OPTION,
+        self:name(),
+        #self.args, self.location, ops, locations, binary, hash)
 end
 
 return { TyPOption = TyPOption }

@@ -4,6 +4,7 @@ local TTuple = require("compiler.ast.typed.type_tuple").TTuple
 local TData = require("compiler.ast.typed.type_data").TData
 local DataOption = require("compiler.ast.typed.type_data").DataOption
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPTuple : TypedPattern
 ---@field kind "TyPTuple"
@@ -111,6 +112,18 @@ function TyPTuple:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPTuple:appendBytecode(ops, locations, binary, hash)
+    for _, item in ipairs(self.items) do
+        ops, locations = item:appendBytecode(ops, locations, binary, hash)
+    end
+    return bytecode.appendMakePattern(bytecode.PATTERN_KIND_TUPLE, "", #self.items, self.location, ops, locations, binary, hash)
 end
 
 return { TyPTuple = TyPTuple }

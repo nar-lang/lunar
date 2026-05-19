@@ -1,4 +1,5 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyCall : TypedExpression
 ---@field kind "TyCall"
@@ -84,6 +85,18 @@ function TyCall:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs = newEqs
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyCall:appendBytecode(ops, locations, binary, hash)
+    for _, arg in ipairs(self.args) do
+        ops, locations = arg:appendBytecode(ops, locations, binary, hash)
+    end
+    return bytecode.appendCall(self.name, #self.args, self.location, ops, locations, binary, hash)
 end
 
 return { TyCall = TyCall }

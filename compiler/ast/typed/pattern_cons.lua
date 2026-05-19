@@ -5,6 +5,7 @@ local TData = require("compiler.ast.typed.type_data").TData
 local DataOption = require("compiler.ast.typed.type_data").DataOption
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPCons : TypedPattern
 ---@field kind "TyPCons"
@@ -97,6 +98,17 @@ function TyPCons:appendEquations(eqs, loc, localDefs, ctx, stack)
         newEqs[#newEqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return newEqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPCons:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.tail:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.head:appendBytecode(ops, locations, binary, hash)
+    return bytecode.appendMakePattern(bytecode.PATTERN_KIND_CONS, "", 0, self.location, ops, locations, binary, hash)
 end
 
 return { TyPCons = TyPCons }

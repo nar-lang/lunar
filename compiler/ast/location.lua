@@ -54,6 +54,11 @@ function Location:getLineAndColumn()
     local startLine, startColumn, endLine, endColumn = 0, 0, 0, 0
     local content = self.fileContent or ""
 
+    -- The parser stores `start`/`finish` as byte offsets, but the Go reference
+    -- iterates a []rune slice, so columns must count Unicode codepoints.
+    -- Iterate every byte (so the offset comparison matches), but only advance
+    -- the column when the current byte is a UTF-8 leading byte (i.e., not a
+    -- 10xxxxxx continuation byte).
     for i = 1, #content do
         if i == self.start then
             startLine = line
@@ -63,10 +68,11 @@ function Location:getLineAndColumn()
             endLine = line
             endColumn = column
         end
-        if content:sub(i, i) == "\n" then
+        local b = content:byte(i)
+        if b == 10 then
             line = line + 1
             column = 1
-        else
+        elseif b < 0x80 or b >= 0xC0 then
             column = column + 1
         end
     end

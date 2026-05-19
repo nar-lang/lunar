@@ -2,6 +2,8 @@ local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TRecord = require("compiler.ast.typed.type_record").TRecord
 local SimpleAnything = require("compiler.ast.typed.simple_pattern").SimpleAnything
+local CString = require("compiler.ast.const").CString
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPRecordField
 ---@field location Location
@@ -113,6 +115,19 @@ function TyPRecord:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPRecord:appendBytecode(ops, locations, binary, hash)
+    for _, f in ipairs(self.fields) do
+        ops, locations = CString.new(f.name):appendBytecode(
+            bytecode.STACK_KIND_PATTERN, f.location, ops, locations, binary, hash)
+    end
+    return bytecode.appendMakePatternLong(bytecode.PATTERN_KIND_RECORD, #self.fields, self.location, ops, locations, binary)
 end
 
 return {

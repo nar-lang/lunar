@@ -1,6 +1,7 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TRecord = require("compiler.ast.typed.type_record").TRecord
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyAccess : TypedExpression
 ---@field kind "TyAccess"
@@ -65,6 +66,16 @@ function TyAccess:appendEquations(eqs, loc, localDefs, ctx, stack)
         return nil, err
     end
     return newEqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyAccess:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.record:appendBytecode(ops, locations, binary, hash)
+    return bytecode.appendAccess(self.fieldName, self.location, ops, locations, binary, hash)
 end
 
 return { TyAccess = TyAccess }

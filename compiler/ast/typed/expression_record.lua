@@ -1,6 +1,8 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TRecord = require("compiler.ast.typed.type_record").TRecord
+local CString = require("compiler.ast.const").CString
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyRecordField
 ---@field location Location
@@ -118,6 +120,20 @@ function TyRecord:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs = newEqs
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyRecord:appendBytecode(ops, locations, binary, hash)
+    for _, f in ipairs(self.fields) do
+        ops, locations = f.value:appendBytecode(ops, locations, binary, hash)
+        ops, locations = CString.new(f.name):appendBytecode(
+            bytecode.STACK_KIND_OBJECT, f.location, ops, locations, binary, hash)
+    end
+    return bytecode.appendMakeObject(bytecode.OBJECT_KIND_RECORD, #self.fields, self.location, ops, locations)
 end
 
 return {

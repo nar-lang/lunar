@@ -4,6 +4,9 @@ local equationMod = require("compiler.ast.typed.equation")
 local newEquation = equationMod.newEquation
 local appendUsefulEquations = equationMod.appendUsefulEquations
 local TFunc = require("compiler.ast.typed.type_func").TFunc
+local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
+local binaryMod = require("compiler.bytecode.binary")
 
 ---@class TypedDefinition : TypedStatement
 ---@field kind "TypedDefinition"
@@ -209,6 +212,43 @@ function TypedDefinition:code(currentModule)
     end
     return string.format("def %s%s%s = %s", self.name, params, typeString,
         self.body:code(currentModule))
+end
+
+---@param pathId FullIdentifier
+---@param modName QualifiedIdentifier
+---@param binary Binary
+---@param hash BinaryHash
+---@return Func
+function TypedDefinition:bytecode(pathId, modName, binary, hash)
+    if self.body == nil then
+        return binaryMod.Func.new(0, 0, {}, "", {})
+    end
+
+    ---@type integer[]
+    local ops = {}
+    ---@type integer[][]
+    local locations = {}
+
+    if self.body.kind == "TyCall" and pathId == self.body.name then
+        ops, locations = bytecode.appendCall(
+            self.body.name, #self.body.args, self.body.location, ops, locations, binary, hash)
+    else
+        for i = #self.params, 1, -1 do
+            local p = self.params[i]
+            ops, locations = p:appendBytecode(ops, locations, binary, hash)
+            ops, locations = bytecode.appendJump(0, true, p.location, ops, locations)
+            ops, locations = bytecode.appendSwapPop(p.location, bytecode.SWAP_POP_MODE_POP, ops, locations)
+        end
+        ops, locations = self.body:appendBytecode(ops, locations, binary, hash)
+    end
+
+    return binaryMod.Func.new(
+        hash:hashString(builtins.makeFullIdentifier(modName, self.name), binary),
+        #self.params,
+        ops,
+        self.location.filePath,
+        locations
+    )
 end
 
 return { TypedDefinition = TypedDefinition }

@@ -1,5 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TySelectCase
 ---@field location Location
@@ -136,6 +137,36 @@ function TySelect:appendEquations(eqs, loc, localDefs, ctx, stack)
         end
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TySelect:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.condition:appendBytecode(ops, locations, binary, hash)
+    ---@type integer[]
+    local jumpToEndIndices = {}
+    ---@type integer
+    local prevMatchOpIndex = 0
+    for i, cs in ipairs(self.cases) do
+        if i > 1 then
+            -- patch the previous case's jump-to-next-case with the now-known offset
+            ops[prevMatchOpIndex] = bytecode.withDelta(ops[prevMatchOpIndex], #ops - prevMatchOpIndex)
+        end
+        ops, locations = cs.pattern:appendBytecode(ops, locations, binary, hash)
+        prevMatchOpIndex = #ops + 1
+        ops, locations = bytecode.appendJump(0, true, cs.location, ops, locations)
+        ops, locations = cs.expression:appendBytecode(ops, locations, binary, hash)
+        jumpToEndIndices[#jumpToEndIndices + 1] = #ops + 1
+        ops, locations = bytecode.appendJump(0, false, cs.location, ops, locations)
+    end
+    local selectEndIndex = #ops
+    for _, jumpOpIndex in ipairs(jumpToEndIndices) do
+        ops[jumpOpIndex] = bytecode.withDelta(ops[jumpOpIndex], selectEndIndex - jumpOpIndex)
+    end
+    return bytecode.appendSwapPop(self.location, bytecode.SWAP_POP_MODE_BOTH, ops, locations)
 end
 
 return {

@@ -24,6 +24,8 @@
 local Parser = require("compiler.parser")
 local NormalizedTreePrint = require("compiler.ast.normalized.tree_print")
 local TypedTreePrint = require("compiler.ast.typed.tree_print")
+local BinaryMod = require("compiler.bytecode.binary")
+local BinaryHashMod = require("compiler.bytecode.binary_hash")
 
 ---@param dir string
 ---@return string[]
@@ -67,6 +69,7 @@ end
 local normalizedMode = false
 local typedMode = false
 local checkedMode = false
+local bytecodeMode = false
 local roots = {}
 for _, a in ipairs(arg) do
     if a == "--normalized" then
@@ -78,13 +81,18 @@ for _, a in ipairs(arg) do
         checkedMode = true
         typedMode = true
         normalizedMode = true
+    elseif a == "--bytecode" then
+        bytecodeMode = true
+        checkedMode = true
+        typedMode = true
+        normalizedMode = true
     else
         roots[#roots + 1] = a
     end
 end
 
 if #roots < 1 then
-    io.stderr:write("usage: treedump [--normalized | --typed | --checked] <root> [<root> ...]\n")
+    io.stderr:write("usage: treedump [--normalized | --typed | --checked | --bytecode] <root> [<root> ...]\n")
     os.exit(2)
 end
 
@@ -266,3 +274,77 @@ for _, n in ipairs(names) do
 end
 
 io.write(string.format("treedump (checked): %d ok, %d failed\n", checkedOk, totalErr))
+
+if not bytecodeMode then
+    return
+end
+
+-- bytecode mode -----------------------------------------------------------
+
+-- 11) For each root, build a single Binary blob from all typed modules under
+-- that root. (Mirrors the Go reference: nar_compiler.Compile sorts module
+-- names then calls Compose on each.)
+
+---@param root string
+---@return QualifiedIdentifier[] sorted module names under this root
+local function modulesUnderRoot(root)
+    local rootFiles = {}
+    for _, p in ipairs(findNarFiles(root)) do
+        rootFiles[p] = true
+    end
+    local result = {}
+    for _, n in ipairs(names) do
+        local path = moduleFile[n]
+        if path ~= nil and rootFiles[path] then
+            result[#result + 1] = n
+        end
+    end
+    table.sort(result)
+    return result
+end
+
+local bytecodeOk = 0
+for _, root in ipairs(roots) do
+    local rootNames = modulesUnderRoot(root)
+    if #rootNames == 0 then
+        goto continue_root
+    end
+
+    local binary = BinaryMod.Binary.new()
+    local hash = BinaryHashMod.BinaryHash.new()
+
+    local composeOk = true
+    for _, n in ipairs(rootNames) do
+        local tm = typedModules[n]
+        if tm == nil then
+            io.stderr:write("compose " .. tostring(n) .. ": typed module missing\n")
+            totalErr = totalErr + 1
+            composeOk = false
+            break
+        end
+        local err = tm:compose(typedModules, true, binary, hash)
+        if err ~= nil then
+            io.stderr:write("compose " .. tostring(n) .. ": " .. tostring(err) .. "\n")
+            totalErr = totalErr + 1
+            composeOk = false
+            break
+        end
+    end
+
+    if composeOk then
+        local outPath = root .. "/binary.lua.bin"
+        local f, err = io.open(outPath, "wb")
+        if f == nil then
+            io.stderr:write("write " .. outPath .. ": " .. tostring(err) .. "\n")
+            totalErr = totalErr + 1
+        else
+            binary:write(f, true)
+            f:close()
+            bytecodeOk = bytecodeOk + 1
+        end
+    end
+
+    ::continue_root::
+end
+
+io.write(string.format("treedump (bytecode): %d ok, %d failed\n", bytecodeOk, totalErr))

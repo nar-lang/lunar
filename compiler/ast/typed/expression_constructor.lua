@@ -1,6 +1,9 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TData = require("compiler.ast.typed.type_data").TData
+local CString = require("compiler.ast.const").CString
+local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyConstructor : TypedExpression
 ---@field kind "TyConstructor"
@@ -109,6 +112,20 @@ function TyConstructor:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs = newEqs
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyConstructor:appendBytecode(ops, locations, binary, hash)
+    for _, arg in ipairs(self.args) do
+        ops, locations = arg:appendBytecode(ops, locations, binary, hash)
+    end
+    local tag = CString.new(builtins.makeDataOptionIdentifier(self.dataName, self.optionName))
+    ops, locations = tag:appendBytecode(bytecode.STACK_KIND_OBJECT, self.location, ops, locations, binary, hash)
+    return bytecode.appendMakeObject(bytecode.OBJECT_KIND_OPTION, #self.args, self.location, ops, locations)
 end
 
 return { TyConstructor = TyConstructor }

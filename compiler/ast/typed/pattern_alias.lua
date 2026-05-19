@@ -1,5 +1,6 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPAlias : TypedPattern
 ---@field kind "TyPAlias"
@@ -74,6 +75,16 @@ function TyPAlias:appendEquations(eqs, loc, localDefs, ctx, stack)
         newEqs[#newEqs + 1] = newEquation(self, self.type_, self.declaredType)
     end
     return newEqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyPAlias:appendBytecode(ops, locations, binary, hash)
+    ops, locations = self.nested:appendBytecode(ops, locations, binary, hash)
+    return bytecode.appendMakePattern(bytecode.PATTERN_KIND_ALIAS, self.alias, 0, self.location, ops, locations, binary, hash)
 end
 
 return { TyPAlias = TyPAlias }

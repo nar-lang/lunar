@@ -2,6 +2,7 @@ local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local TNative = require("compiler.ast.typed.type_native").TNative
 local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyList : TypedExpression
 ---@field kind "TyList"
@@ -88,6 +89,18 @@ function TyList:appendEquations(eqs, loc, localDefs, ctx, stack)
         eqs = newEqs
     end
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyList:appendBytecode(ops, locations, binary, hash)
+    for _, item in ipairs(self.items) do
+        ops, locations = item:appendBytecode(ops, locations, binary, hash)
+    end
+    return bytecode.appendMakeObject(bytecode.OBJECT_KIND_LIST, #self.items, self.location, ops, locations)
 end
 
 return { TyList = TyList }

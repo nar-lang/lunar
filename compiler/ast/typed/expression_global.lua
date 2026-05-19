@@ -1,6 +1,7 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local builtins = require("compiler.common.builtins")
+local bytecode = require("compiler.bytecode.op")
 
 ---@class TyGlobal : TypedExpression
 ---@field kind "TyGlobal"
@@ -74,6 +75,20 @@ function TyGlobal:appendEquations(eqs, loc, localDefs, ctx, stack)
     end
     eqs[#eqs + 1] = newEquation(self, self.type_, defType)
     return eqs, nil
+end
+
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TyGlobal:appendBytecode(ops, locations, binary, hash)
+    local id = builtins.makeFullIdentifier(self.moduleName, self.definitionName)
+    local funcIndex = hash.funcsMap[id]
+    if funcIndex == nil then
+        error(string.format("global definition `%s` not found", id))
+    end
+    return bytecode.appendLoadGlobal(funcIndex, self.location, ops, locations)
 end
 
 return { TyGlobal = TyGlobal }
