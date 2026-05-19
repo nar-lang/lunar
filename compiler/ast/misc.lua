@@ -1,6 +1,5 @@
 ---@alias Identifier string
 ---@alias QualifiedIdentifier string
----@alias PackageIdentifier string
 ---@alias InfixIdentifier string
 ---@alias FullIdentifier string
 ---@alias DataOptionIdentifier string

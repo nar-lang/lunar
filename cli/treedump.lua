@@ -117,8 +117,6 @@ for _, path in ipairs(allFiles) do
         io.stderr:write("parse " .. path .. ": " .. tostring(firstErr) .. "\n")
     else
         ---@cast m Module
-        m:setPackageName("treedump")
-        m:setReferencedPackages({ treedump = true })
         parsedModules[m.name] = m
         moduleFile[m.name] = path
     end

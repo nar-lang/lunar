@@ -6,8 +6,6 @@ local builtins = require("compiler.common.builtins")
 ---@field kind "Module"
 ---@field name QualifiedIdentifier
 ---@field location Location
----@field packageName PackageIdentifier|nil
----@field referencedPackages table<PackageIdentifier, true>
 ---@field imports Import[]
 ---@field aliases Alias[]
 ---@field infixFns Infix[]
@@ -29,39 +27,12 @@ function Module.new(name, location, imports, aliases, infixFns, definitions, dat
         kind = "Module",
         name = name,
         location = location,
-        packageName = nil,
-        referencedPackages = {},
         imports = imports or {},
         aliases = aliases or {},
         infixFns = infixFns or {},
         definitions = definitions or {},
         dataTypes = dataTypes or {},
     }, Module)
-end
-
----@param packageName PackageIdentifier
-function Module:setPackageName(packageName)
-    self.packageName = packageName
-end
-
----@param packages table<PackageIdentifier, true>|PackageIdentifier[]
-function Module:setReferencedPackages(packages)
-    ---@type table<PackageIdentifier, true>
-    local set = {}
-    if packages ~= nil then
-        if #packages > 0 then
-            for _, p in ipairs(packages) do
-                set[p] = true
-            end
-        else
-            for k, v in pairs(packages) do
-                if v == true then
-                    set[k] = true
-                end
-            end
-        end
-    end
-    self.referencedPackages = set
 end
 
 ---@param f fun(stmt: Statement)
@@ -82,18 +53,6 @@ function Module:iterate(f)
     for _, dt in ipairs(self.dataTypes) do
         dt:iterate(f)
     end
-end
-
----@param submodule Module
----@return boolean
-function Module:isReferenced(submodule)
-    if submodule.packageName == self.packageName then
-        return true
-    end
-    if submodule.packageName == nil then
-        return false
-    end
-    return self.referencedPackages[submodule.packageName] == true
 end
 
 ---Find a definition by qualified name. Returns (def, module, fullIdentifiers).
@@ -150,22 +109,20 @@ function Module:findDefinition(modules, name)
     -- 3. search in all modules by qualified Name
     if modName ~= "" then
         local sub = modules[modName]
-        if sub ~= nil and self:isReferenced(sub) then
+        if sub ~= nil then
             return sub:findDefinition(nil, defName)
         end
         -- 4. search in all modules by short Name suffix
         local suffix = "." .. modName
         for modId, sub2 in pairs(modules) do
-            if self:isReferenced(sub2) then
-                local modIdStr = tostring(modId)
-                if #modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix then
-                    local d, m, ids = sub2:findDefinition(nil, defName)
-                    if #ids ~= 0 then
-                        rDef = d
-                        rModule = m
-                        for _, id in ipairs(ids) do
-                            rIdent[#rIdent + 1] = id
-                        end
+            local modIdStr = tostring(modId)
+            if #modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix then
+                local d, m, ids = sub2:findDefinition(nil, defName)
+                if #ids ~= 0 then
+                    rDef = d
+                    rModule = m
+                    for _, id in ipairs(ids) do
+                        rIdent[#rIdent + 1] = id
                     end
                 end
             end
@@ -181,17 +138,15 @@ function Module:findDefinition(modules, name)
         if first >= "A" and first <= "Z" then
             local suffix = "." .. defName
             for modId, sub2 in pairs(modules) do
-                if self:isReferenced(sub2) then
-                    local modIdStr = tostring(modId)
-                    if modIdStr == defName or
-                        (#modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix) then
-                        local d, m, ids = sub2:findDefinition(nil, defName)
-                        if #ids ~= 0 then
-                            rDef = d
-                            rModule = m
-                            for _, id in ipairs(ids) do
-                                rIdent[#rIdent + 1] = id
-                            end
+                local modIdStr = tostring(modId)
+                if modIdStr == defName or
+                    (#modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix) then
+                    local d, m, ids = sub2:findDefinition(nil, defName)
+                    if #ids ~= 0 then
+                        rDef = d
+                        rModule = m
+                        for _, id in ipairs(ids) do
+                            rIdent[#rIdent + 1] = id
                         end
                     end
                 end
@@ -205,14 +160,12 @@ function Module:findDefinition(modules, name)
     -- 6. search all modules
     if modName == "" then
         for _, sub2 in pairs(modules) do
-            if self:isReferenced(sub2) then
-                local d, m, ids = sub2:findDefinition(nil, defName)
-                if #ids ~= 0 then
-                    rDef = d
-                    rModule = m
-                    for _, id in ipairs(ids) do
-                        rIdent[#rIdent + 1] = id
-                    end
+            local d, m, ids = sub2:findDefinition(nil, defName)
+            if #ids ~= 0 then
+                rDef = d
+                rModule = m
+                for _, id in ipairs(ids) do
+                    rIdent[#rIdent + 1] = id
                 end
             end
         end
@@ -270,14 +223,12 @@ function Module:findInfixFn(modules, name)
     local rIdent = {}
     -- 6. search all modules
     for _, sub in pairs(modules) do
-        if self:isReferenced(sub) then
-            local fi, fm, fid = sub:findInfixFn(nil, name)
-            if fid ~= nil and #fid > 0 then
-                rInfix = fi
-                rModule = fm
-                for _, id in ipairs(fid) do
-                    rIdent[#rIdent + 1] = id
-                end
+        local fi, fm, fid = sub:findInfixFn(nil, name)
+        if fid ~= nil and #fid > 0 then
+            rInfix = fi
+            rModule = fm
+            for _, id in ipairs(fid) do
+                rIdent[#rIdent + 1] = id
             end
         end
     end
@@ -344,24 +295,22 @@ function Module:findType(modules, name, args, loc)
     -- 3-4. search by qualified / short mod name
     if modName ~= "" then
         local sub = modules[modName]
-        if sub ~= nil and self:isReferenced(sub) then
+        if sub ~= nil then
             return sub:findType(nil, typeName, args, loc)
         end
         local suffix = "." .. modName
         for modId, sub2 in pairs(modules) do
-            if self:isReferenced(sub2) then
-                local modIdStr = tostring(modId)
-                if #modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix then
-                    local t, m, ids, err = sub2:findType(nil, typeName, args, loc)
-                    if err ~= nil then
-                        return nil, nil, {}, err
-                    end
-                    if #ids ~= 0 then
-                        rType = t
-                        rModule = m
-                        for _, id in ipairs(ids) do
-                            rIdent[#rIdent + 1] = id
-                        end
+            local modIdStr = tostring(modId)
+            if #modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix then
+                local t, m, ids, err = sub2:findType(nil, typeName, args, loc)
+                if err ~= nil then
+                    return nil, nil, {}, err
+                end
+                if #ids ~= 0 then
+                    rType = t
+                    rModule = m
+                    for _, id in ipairs(ids) do
+                        rIdent[#rIdent + 1] = id
                     end
                 end
             end
@@ -377,20 +326,18 @@ function Module:findType(modules, name, args, loc)
         if first >= "A" and first <= "Z" then
             local suffix = "." .. typeName
             for modId, sub2 in pairs(modules) do
-                if self:isReferenced(sub2) then
-                    local modIdStr = tostring(modId)
-                    if modIdStr == typeName or
-                        (#modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix) then
-                        local t, m, ids, err = sub2:findType(nil, typeName, args, loc)
-                        if err ~= nil then
-                            return nil, nil, {}, err
-                        end
-                        if #ids ~= 0 then
-                            rType = t
-                            rModule = m
-                            for _, id in ipairs(ids) do
-                                rIdent[#rIdent + 1] = id
-                            end
+                local modIdStr = tostring(modId)
+                if modIdStr == typeName or
+                    (#modIdStr >= #suffix and modIdStr:sub(-#suffix) == suffix) then
+                    local t, m, ids, err = sub2:findType(nil, typeName, args, loc)
+                    if err ~= nil then
+                        return nil, nil, {}, err
+                    end
+                    if #ids ~= 0 then
+                        rType = t
+                        rModule = m
+                        for _, id in ipairs(ids) do
+                            rIdent[#rIdent + 1] = id
                         end
                     end
                 end
@@ -404,17 +351,15 @@ function Module:findType(modules, name, args, loc)
     -- 6. all modules
     if modName == "" then
         for _, sub2 in pairs(modules) do
-            if self:isReferenced(sub2) then
-                local t, m, ids, err = sub2:findType(nil, typeName, args, loc)
-                if err ~= nil then
-                    return nil, nil, {}, err
-                end
-                if #ids ~= 0 then
-                    rType = t
-                    rModule = m
-                    for _, id in ipairs(ids) do
-                        rIdent[#rIdent + 1] = id
-                    end
+            local t, m, ids, err = sub2:findType(nil, typeName, args, loc)
+            if err ~= nil then
+                return nil, nil, {}, err
+            end
+            if #ids ~= 0 then
+                rType = t
+                rModule = m
+                for _, id in ipairs(ids) do
+                    rIdent[#rIdent + 1] = id
                 end
             end
         end

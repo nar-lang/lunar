@@ -147,8 +147,8 @@ local handlers = {}
 ---@param offset integer
 handlers.Module = function(node, offset)
     local buf = {
-        indent(offset) .. string.format("Module(name=%s, packageName=%s)\n",
-            formatName(node.name), formatName(node.packageName)),
+        indent(offset) .. string.format("Module(name=%s)\n",
+            formatName(node.name)),
     }
     appendChildren(buf, node.imports, offset + 1)
     appendChildren(buf, node.dataTypes, offset + 1)
