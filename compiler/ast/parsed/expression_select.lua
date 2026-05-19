@@ -18,6 +18,9 @@ function SelectCase.new(location, pattern, body)
 end
 
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NSelect = require("compiler.ast.normalized.expression_select").NSelect
+local NSelectCase = require("compiler.ast.normalized.expression_select").NSelectCase
+local cloneMap = require("compiler.ast.parsed.utils").cloneMap
 
 ---@class Select : Expression
 ---@field kind "Select"
@@ -56,10 +59,31 @@ function Select:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Select:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Select:normalize(locals, modules, module, normalizedModule)
+    local condition, err = self.condition:normalize(locals, modules, module, normalizedModule)
+    if condition == nil then
+        return nil, err
+    end
+    local cases = {}
+    for i, c in ipairs(self.cases) do
+        local innerLocals = cloneMap(locals)
+        local pattern, perr = c.pattern:normalize(innerLocals, modules, module, normalizedModule)
+        if pattern == nil then
+            return nil, perr
+        end
+        local body, berr = c.body:normalize(innerLocals, modules, module, normalizedModule)
+        if body == nil then
+            return nil, berr
+        end
+        cases[i] = NSelectCase.new(c.location, pattern, body)
+    end
+    return self:setSuccessor(NSelect.new(self.location, condition, cases)), nil
 end
 
 return { Select = Select, SelectCase = SelectCase }

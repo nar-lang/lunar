@@ -1,4 +1,7 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NFunction = require("compiler.ast.normalized.expression_function").NFunction
+local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
+local cloneMap = require("compiler.ast.parsed.utils").cloneMap
 
 ---@class Function : Expression
 ---@field kind "Function"
@@ -50,10 +53,42 @@ function Function:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Function:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Function:normalize(locals, modules, module, normalizedModule)
+    local innerLocals = cloneMap(locals)
+    innerLocals[self.name] = NPNamed.new(self.nameLocation, nil, self.name)
+    local params = {}
+    for i, param in ipairs(self.params) do
+        local nParam, err = param:normalize(innerLocals, modules, module, normalizedModule)
+        if nParam == nil then
+            return nil, err
+        end
+        params[i] = nParam
+    end
+    local body, err = self.body:normalize(innerLocals, modules, module, normalizedModule)
+    if body == nil then
+        return nil, err
+    end
+    local nested, err2 = self.nested:normalize(innerLocals, modules, module, normalizedModule)
+    if nested == nil then
+        return nil, err2
+    end
+    ---@type NormType|nil
+    local declaredType
+    if self.declaredType ~= nil then
+        local nType, err3 = self.declaredType:normalize(modules, module, nil)
+        if err3 ~= nil then
+            return nil, err3
+        end
+        declaredType = nType
+    end
+    return self:setSuccessor(
+        NFunction.new(self.location, self.name, params, body, declaredType, nested, self)), nil
 end
 
 return { Function = Function }

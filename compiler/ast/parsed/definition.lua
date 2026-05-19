@@ -1,4 +1,6 @@
 local Statement = require("compiler.ast.parsed.defines").Statement
+local Counters = require("compiler.ast.normalized.defines").Counters
+local NormDefinition = require("compiler.ast.normalized.definition").NormDefinition
 
 ---@class Definition : Statement
 ---@field kind "Definition"
@@ -9,6 +11,7 @@ local Statement = require("compiler.ast.parsed.defines").Statement
 ---@field params Pattern[]
 ---@field body Expression?
 ---@field declaredType Type|nil
+---@field successor NormDefinition|nil
 local Definition = setmetatable({}, { __index = Statement })
 Definition.__index = Definition
 
@@ -39,18 +42,70 @@ function Definition:iterate(f)
     for _, p in ipairs(self.params) do
         p:iterate(f)
     end
-    if self.body ~= nil then
-        self.body:iterate(f)
-    end
     if self.declaredType ~= nil then
         self.declaredType:iterate(f)
     end
+    if self.body ~= nil then
+        self.body:iterate(f)
+    end
 end
 
----@return nil
----@return string
-function Definition:normalize()
-    return nil, "TODO: normalize"
+---Normalize this definition. Returns the normalized definition, the parameter
+---locals map (so the module can register them as roots), and a flat error list.
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormDefinition
+---@return table<Identifier, NormPattern> paramLocals
+---@return string[] errors
+function Definition:normalize(modules, module, normalizedModule)
+    Counters.lastDefinitionId = Counters.lastDefinitionId + 1
+    local id = Counters.lastDefinitionId
+
+    ---@type table<Identifier, NormPattern>
+    local paramLocals = {}
+    ---@type NormPattern[]
+    local params = {}
+    ---@type string[]
+    local errors = {}
+
+    for i, param in ipairs(self.params) do
+        local nParam, err = param:normalize(paramLocals, modules, module, normalizedModule)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        params[i] = nParam
+    end
+
+    ---@type NormExpression|nil
+    local body
+    if self.body ~= nil then
+        local locals = {}
+        for k, v in pairs(paramLocals) do
+            locals[k] = v
+        end
+        local nBody, err = self.body:normalize(locals, modules, module, normalizedModule)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        body = nBody
+    end
+
+    ---@type NormType|nil
+    local declaredType
+    if self.declaredType ~= nil then
+        local nType, err = self.declaredType:normalize(modules, module, nil)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        declaredType = nType
+    end
+
+    local nDef = NormDefinition.new(
+        self.location, id, self.hidden, self.name,
+        self.nameLocation, params, body, declaredType)
+    self.successor = nDef
+    return nDef, paramLocals, errors
 end
 
 return { Definition = Definition }

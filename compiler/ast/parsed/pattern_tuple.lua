@@ -1,4 +1,6 @@
 local Pattern = require("compiler.ast.parsed.pattern").Pattern
+local NPTuple = require("compiler.ast.normalized.pattern_tuple").NPTuple
+local joinErrorList = require("compiler.ast.parsed.defines").joinErrorList
 
 ---@class PTuple : Pattern
 ---@field kind "PTuple"
@@ -30,10 +32,34 @@ function PTuple:iterate(f)
     end
 end
 
----@return nil
----@return string
-function PTuple:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormPattern
+---@return string|nil error
+function PTuple:normalize(locals, modules, module, normalizedModule)
+    local items = {}
+    ---@type (string|nil)[]
+    local errors = {}
+    for i, item in ipairs(self.items) do
+        local nItem, err = item:normalize(locals, modules, module, normalizedModule)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        items[i] = nItem
+    end
+    ---@type NormType|nil
+    local declaredType
+    if self.declaredType ~= nil then
+        local nType, err = self.declaredType:normalize(modules, module, nil)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        declaredType = nType
+    end
+    return self:setSuccessor(NPTuple.new(self.location, declaredType, items)),
+        joinErrorList(errors)
 end
 
 return { PTuple = PTuple }

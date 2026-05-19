@@ -18,6 +18,8 @@ function RecordField.new(location, name, value)
 end
 
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NRecord = require("compiler.ast.normalized.expression_record").NRecord
+local NRecordField = require("compiler.ast.normalized.expression_record").NRecordField
 
 ---@class Record : Expression
 ---@field kind "Record"
@@ -47,10 +49,22 @@ function Record:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Record:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Record:normalize(locals, modules, module, normalizedModule)
+    local fields = {}
+    for i, field in ipairs(self.fields) do
+        local nValue, err = field.value:normalize(locals, modules, module, normalizedModule)
+        if nValue == nil then
+            return nil, err
+        end
+        fields[i] = NRecordField.new(field.location, field.name, nValue)
+    end
+    return self:setSuccessor(NRecord.new(self.location, fields)), nil
 end
 
 return { Record = Record, RecordField = RecordField }

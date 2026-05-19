@@ -30,7 +30,19 @@ local function newAmbiguousDefinitionError(ids, name, loc)
     )
 end
 
+---@generic K, V
+---@param t table<K, V>
+---@return table<K, V>
+local function cloneMap(t)
+    local r = {}
+    for k, v in pairs(t) do
+        r[k] = v
+    end
+    return r
+end
+
 return {
     newAmbiguousInfixError = newAmbiguousInfixError,
     newAmbiguousDefinitionError = newAmbiguousDefinitionError,
+    cloneMap = cloneMap,
 }

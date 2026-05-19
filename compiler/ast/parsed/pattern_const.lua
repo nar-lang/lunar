@@ -1,4 +1,5 @@
 local Pattern = require("compiler.ast.parsed.pattern").Pattern
+local NPConst = require("compiler.ast.normalized.pattern_const").NPConst
 
 ---@class PConst : Pattern
 ---@field kind "PConst"
@@ -27,10 +28,21 @@ function PConst:iterate(f)
     end
 end
 
----@return nil
----@return string
-function PConst:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormPattern
+---@return string|nil error
+function PConst:normalize(locals, modules, module, normalizedModule)
+    ---@type NormType|nil
+    local declaredType
+    ---@type string|nil
+    local err
+    if self.declaredType ~= nil then
+        declaredType, err = self.declaredType:normalize(modules, module, nil)
+    end
+    return self:setSuccessor(NPConst.new(self.location, declaredType, self.value)), err
 end
 
 return { PConst = PConst }

@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NTuple = require("compiler.ast.normalized.expression_tuple").NTuple
 
 ---@class Tuple : Expression
 ---@field kind "Tuple"
@@ -26,10 +27,22 @@ function Tuple:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Tuple:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Tuple:normalize(locals, modules, module, normalizedModule)
+    local items = {}
+    for i, item in ipairs(self.items) do
+        local nItem, err = item:normalize(locals, modules, module, normalizedModule)
+        if nItem == nil then
+            return nil, err
+        end
+        items[i] = nItem
+    end
+    return self:setSuccessor(NTuple.new(self.location, items)), nil
 end
 
 return { Tuple = Tuple }

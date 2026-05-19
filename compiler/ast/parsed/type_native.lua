@@ -1,4 +1,5 @@
 local Type = require("compiler.ast.parsed.type").Type
+local NTNative = require("compiler.ast.normalized.type_native").NTNative
 
 ---@class TNative : Type
 ---@field kind "TNative"
@@ -32,10 +33,37 @@ function TNative:iterate(f)
     end
 end
 
----@return nil
----@return string
-function TNative:normalize()
-    return nil, "TODO: normalize"
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param namedTypes NamedTypeMap|nil
+---@return NormType|nil
+---@return string|nil error
+function TNative:normalize(modules, module, namedTypes)
+    local args = {}
+    for i, a in ipairs(self.args) do
+        local na, err = a:normalize(modules, module, namedTypes)
+        if err ~= nil then
+            return nil, err
+        end
+        args[i] = na
+    end
+    return self:setSuccessor(NTNative.new(self.location, self.name, args)), nil
+end
+
+---@param params table<Identifier, Type>
+---@param loc Location
+---@return Type|nil
+---@return string|nil error
+function TNative:applyArgs(params, loc)
+    local args = {}
+    for i, a in ipairs(self.args) do
+        local na, err = a:applyArgs(params, loc)
+        if err ~= nil then
+            return nil, err
+        end
+        args[i] = na
+    end
+    return TNative.new(loc, self.name, args, self.nameLocation), nil
 end
 
 return { TNative = TNative }

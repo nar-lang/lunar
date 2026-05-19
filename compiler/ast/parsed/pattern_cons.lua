@@ -1,4 +1,6 @@
 local Pattern = require("compiler.ast.parsed.pattern").Pattern
+local NPCons = require("compiler.ast.normalized.pattern_cons").NPCons
+local joinErrors = require("compiler.ast.parsed.defines").joinErrors
 
 ---@class PCons : Pattern
 ---@field kind "PCons"
@@ -36,10 +38,27 @@ function PCons:iterate(f)
     end
 end
 
----@return nil
----@return string
-function PCons:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormPattern|nil
+---@return string|nil error
+function PCons:normalize(locals, modules, module, normalizedModule)
+    local head, err1 = self.head:normalize(locals, modules, module, normalizedModule)
+    local tail, err2 = self.tail:normalize(locals, modules, module, normalizedModule)
+    if head == nil or tail == nil then
+        return nil, joinErrors(err1, err2) or "failed to normalize cons pattern"
+    end
+    ---@type NormType|nil
+    local declaredType
+    ---@type string|nil
+    local err3
+    if self.declaredType ~= nil then
+        declaredType, err3 = self.declaredType:normalize(modules, module, nil)
+    end
+    return self:setSuccessor(NPCons.new(self.location, declaredType, head, tail)),
+        joinErrors(err1, err2, err3)
 end
 
 return { PCons = PCons }

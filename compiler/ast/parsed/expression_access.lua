@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NAccess = require("compiler.ast.normalized.expression_access").NAccess
 
 ---@class Access : Expression
 ---@field kind "Access"
@@ -32,10 +33,18 @@ function Access:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Access:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Access:normalize(locals, modules, module, normalizedModule)
+    local record, err = self.record:normalize(locals, modules, module, normalizedModule)
+    if record == nil then
+        return nil, err
+    end
+    return self:setSuccessor(NAccess.new(self.location, record, self.fieldName)), nil
 end
 
 return { Access = Access }

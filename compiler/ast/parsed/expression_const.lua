@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NConst = require("compiler.ast.normalized.expression_const").NConst
 
 ---@class Const : Expression
 ---@field kind "Const"
@@ -23,10 +24,14 @@ function Const:iterate(f)
     f(self)
 end
 
----@return nil
----@return string
-function Const:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression
+---@return string|nil error
+function Const:normalize(locals, modules, module, normalizedModule)
+    return self:setSuccessor(NConst.new(self.location, self.value)), nil
 end
 
 return { Const = Const }

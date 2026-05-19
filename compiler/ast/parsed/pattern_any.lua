@@ -1,4 +1,5 @@
 local Pattern = require("compiler.ast.parsed.pattern").Pattern
+local NPAny = require("compiler.ast.normalized.pattern_any").NPAny
 
 ---@class PAny : Pattern
 ---@field kind "PAny"
@@ -24,10 +25,21 @@ function PAny:iterate(f)
     end
 end
 
----@return nil
----@return string
-function PAny:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormPattern
+---@return string|nil error
+function PAny:normalize(locals, modules, module, normalizedModule)
+    ---@type NormType|nil
+    local declaredType
+    ---@type string|nil
+    local err
+    if self.declaredType ~= nil then
+        declaredType, err = self.declaredType:normalize(modules, module, nil)
+    end
+    return self:setSuccessor(NPAny.new(self.location, declaredType)), err
 end
 
 return { PAny = PAny }

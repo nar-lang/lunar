@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NCall = require("compiler.ast.normalized.expression_call").NCall
 
 ---@class Call : Expression
 ---@field kind "Call"
@@ -29,10 +30,22 @@ function Call:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Call:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Call:normalize(locals, modules, module, normalizedModule)
+    local args = {}
+    for i, arg in ipairs(self.args) do
+        local nArg, err = arg:normalize(locals, modules, module, normalizedModule)
+        if nArg == nil then
+            return nil, err
+        end
+        args[i] = nArg
+    end
+    return self:setSuccessor(NCall.new(self.location, self.name, args)), nil
 end
 
 return { Call = Call }

@@ -15,6 +15,9 @@ function PRecordField.new(location, name)
 end
 
 local Pattern = require("compiler.ast.parsed.pattern").Pattern
+local NPRecord = require("compiler.ast.normalized.pattern_record").NPRecord
+local NPRecordField = require("compiler.ast.normalized.pattern_record").NPRecordField
+local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
 
 ---@class PRecord : Pattern
 ---@field kind "PRecord"
@@ -43,10 +46,26 @@ function PRecord:iterate(f)
     end
 end
 
----@return nil
----@return string
-function PRecord:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormPattern
+---@return string|nil error
+function PRecord:normalize(locals, modules, module, normalizedModule)
+    ---@type NormType|nil
+    local declaredType
+    ---@type string|nil
+    local err
+    if self.declaredType ~= nil then
+        declaredType, err = self.declaredType:normalize(modules, module, nil)
+    end
+    local fields = {}
+    for i, x in ipairs(self.fields) do
+        locals[x.name] = NPNamed.new(x.location, nil, x.name)
+        fields[i] = NPRecordField.new(x.location, x.name)
+    end
+    return self:setSuccessor(NPRecord.new(self.location, declaredType, fields)), err
 end
 
 return { PRecord = PRecord, PRecordField = PRecordField }

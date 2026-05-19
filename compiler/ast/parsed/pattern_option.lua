@@ -1,4 +1,6 @@
 local Pattern = require("compiler.ast.parsed.pattern").Pattern
+local NPOption = require("compiler.ast.normalized.pattern_option").NPOption
+local joinErrorList = require("compiler.ast.parsed.defines").joinErrorList
 
 ---@class POption : Pattern
 ---@field kind "POption"
@@ -36,10 +38,45 @@ function POption:iterate(f)
     end
 end
 
----@return nil
----@return string
-function POption:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormPattern|nil
+---@return string|nil error
+function POption:normalize(locals, modules, module, normalizedModule)
+    local def, mod, ids = module:findDefinitionAndAddDependency(modules, self.name, normalizedModule)
+    if ids == nil or #ids == 0 then
+        return nil, "data constructor not found"
+    elseif #ids > 1 then
+        return nil, string.format(
+            "ambiguous data constructor `%s`, it can be one of %s. " ..
+            "Use import or qualified identifer to clarify which one to use",
+            self.name, table.concat(ids, ", "))
+    end
+    ---@cast def Definition
+    ---@cast mod Module
+    local values = {}
+    ---@type (string|nil)[]
+    local errors = {}
+    for i, v in ipairs(self.args) do
+        local nv, err = v:normalize(locals, modules, module, normalizedModule)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        values[i] = nv
+    end
+    ---@type NormType|nil
+    local declaredType
+    if self.declaredType ~= nil then
+        local nType, err = self.declaredType:normalize(modules, module, nil)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        end
+        declaredType = nType
+    end
+    return self:setSuccessor(NPOption.new(self.location, declaredType, mod.name, def.name, values)),
+        joinErrorList(errors)
 end
 
 return { POption = POption }

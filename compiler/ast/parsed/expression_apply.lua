@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NApply = require("compiler.ast.normalized.expression_apply").NApply
 
 ---@class Apply : Expression
 ---@field kind "Apply"
@@ -32,10 +33,26 @@ function Apply:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Apply:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Apply:normalize(locals, modules, module, normalizedModule)
+    local fn, err = self.func:normalize(locals, modules, module, normalizedModule)
+    if fn == nil then
+        return nil, err
+    end
+    local args = {}
+    for i, arg in ipairs(self.args) do
+        local nArg, argErr = arg:normalize(locals, modules, module, normalizedModule)
+        if nArg == nil then
+            return nil, argErr
+        end
+        args[i] = nArg
+    end
+    return self:setSuccessor(NApply.new(self.location, fn, args)), nil
 end
 
 return { Apply = Apply }

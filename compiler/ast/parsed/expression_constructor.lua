@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NConstructor = require("compiler.ast.normalized.expression_constructor").NConstructor
 
 ---@class Constructor : Expression
 ---@field kind "Constructor"
@@ -38,10 +39,23 @@ function Constructor:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Constructor:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Constructor:normalize(locals, modules, module, normalizedModule)
+    local args = {}
+    for i, arg in ipairs(self.args) do
+        local nArg, err = arg:normalize(locals, modules, module, normalizedModule)
+        if nArg == nil then
+            return nil, err
+        end
+        args[i] = nArg
+    end
+    return self:setSuccessor(
+        NConstructor.new(self.location, self.moduleName, self.dataName, self.optionName, args)), nil
 end
 
 return { Constructor = Constructor }

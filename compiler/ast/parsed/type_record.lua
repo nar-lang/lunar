@@ -1,4 +1,5 @@
 local Type = require("compiler.ast.parsed.type").Type
+local NTRecord = require("compiler.ast.normalized.type_record").NTRecord
 
 ---@class TRecord : Type
 ---@field kind "TRecord"
@@ -28,10 +29,37 @@ function TRecord:iterate(f)
     end
 end
 
----@return nil
----@return string
-function TRecord:normalize()
-    return nil, "TODO: normalize"
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param namedTypes NamedTypeMap|nil
+---@return NormType|nil
+---@return string|nil error
+function TRecord:normalize(modules, module, namedTypes)
+    local fields = {}
+    for name, v in pairs(self.fields) do
+        local nv, err = v:normalize(modules, module, namedTypes)
+        if err ~= nil then
+            return nil, err
+        end
+        fields[name] = nv
+    end
+    return self:setSuccessor(NTRecord.new(self.location, fields)), nil
+end
+
+---@param params table<Identifier, Type>
+---@param loc Location
+---@return Type|nil
+---@return string|nil error
+function TRecord:applyArgs(params, loc)
+    local fields = {}
+    for name, f in pairs(self.fields) do
+        local nf, err = f:applyArgs(params, loc)
+        if err ~= nil then
+            return nil, err
+        end
+        fields[name] = nf
+    end
+    return TRecord.new(loc, fields), nil
 end
 
 return { TRecord = TRecord }

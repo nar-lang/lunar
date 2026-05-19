@@ -1,4 +1,7 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NUpdate = require("compiler.ast.normalized.expression_update").NUpdate
+local NRecordField = require("compiler.ast.normalized.expression_record").NRecordField
+local utils = require("compiler.ast.parsed.utils")
 
 ---@class Update : Expression
 ---@field kind "Update"
@@ -31,10 +34,36 @@ function Update:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Update:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Update:normalize(locals, modules, module, normalizedModule)
+    local fields = {}
+    for i, field in ipairs(self.fields) do
+        local value, err = field.value:normalize(locals, modules, module, normalizedModule)
+        if value == nil then
+            return nil, err
+        end
+        fields[i] = NRecordField.new(field.location, field.name, value)
+    end
+    local d, m, ids = module:findDefinitionAndAddDependency(modules, self.recordName, normalizedModule)
+    if ids ~= nil and #ids == 1 then
+        ---@cast d Definition
+        ---@cast m Module
+        return NUpdate.newGlobal(self.location, m.name, d.name, fields), nil
+    elseif ids ~= nil and #ids > 1 then
+        return nil, utils.newAmbiguousDefinitionError(ids, self.recordName, self.location)
+    end
+    ---@type Identifier
+    local localKey = self.recordName
+    local lc = locals[localKey]
+    if lc ~= nil then
+        return self:setSuccessor(NUpdate.newLocal(self.location, localKey, lc, fields)), nil
+    end
+    return nil, string.format("identifier `%s` not found", self.recordName)
 end
 
 return { Update = Update }

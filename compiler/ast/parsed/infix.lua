@@ -57,10 +57,4 @@ function Infix:iterate(f)
     f(self)
 end
 
----@return nil
----@return string
-function Infix:normalize()
-    return nil, "TODO: normalize"
-end
-
 return { Infix = Infix, Associativity = Associativity }

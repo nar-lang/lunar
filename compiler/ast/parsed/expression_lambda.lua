@@ -1,4 +1,5 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NLambda = require("compiler.ast.normalized.expression_lambda").NLambda
 
 ---@class Lambda : Expression
 ---@field kind "Lambda"
@@ -38,10 +39,26 @@ function Lambda:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Lambda:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Lambda:normalize(locals, modules, module, normalizedModule)
+    local params = {}
+    for i, param in ipairs(self.params) do
+        local nParam, err = param:normalize(locals, modules, module, normalizedModule)
+        if nParam == nil then
+            return nil, err
+        end
+        params[i] = nParam
+    end
+    local body, err = self.body:normalize(locals, modules, module, normalizedModule)
+    if body == nil then
+        return nil, err
+    end
+    return self:setSuccessor(NLambda.new(self.location, params, body)), nil
 end
 
 return { Lambda = Lambda }

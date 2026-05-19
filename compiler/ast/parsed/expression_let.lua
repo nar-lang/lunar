@@ -1,4 +1,6 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NLet = require("compiler.ast.normalized.expression_let").NLet
+local cloneMap = require("compiler.ast.parsed.utils").cloneMap
 
 ---@class Let : Expression
 ---@field kind "Let"
@@ -38,10 +40,27 @@ function Let:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Let:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Let:normalize(locals, modules, module, normalizedModule)
+    local innerLocals = cloneMap(locals)
+    local pattern, err1 = self.pattern:normalize(innerLocals, modules, module, normalizedModule)
+    if pattern == nil then
+        return nil, err1
+    end
+    local value, err2 = self.value:normalize(innerLocals, modules, module, normalizedModule)
+    if value == nil then
+        return nil, err2
+    end
+    local nested, err3 = self.nested:normalize(innerLocals, modules, module, normalizedModule)
+    if nested == nil then
+        return nil, err3
+    end
+    return self:setSuccessor(NLet.new(self.location, pattern, value, nested)), nil
 end
 
 return { Let = Let }

@@ -1,4 +1,5 @@
 local Statement = require("compiler.ast.parsed.defines").Statement
+local makeFullIdentifier = require("compiler.ast.misc").makeFullIdentifier
 
 ---@class DataTypeValue
 ---@field location Location
@@ -22,13 +23,14 @@ function DataTypeValue.new(location, name, type_, nameLocation)
     }, DataTypeValue)
 end
 
----@class DataTypeOption
+---@class DataTypeOption : Statement
+---@field kind "DataTypeOption"
 ---@field location Location
 ---@field hidden boolean
 ---@field name Identifier
 ---@field values DataTypeValue[]
 ---@field nameLocation Location
-local DataTypeOption = {}
+local DataTypeOption = setmetatable({}, { __index = Statement })
 DataTypeOption.__index = DataTypeOption
 
 ---@param location Location
@@ -39,6 +41,7 @@ DataTypeOption.__index = DataTypeOption
 ---@return DataTypeOption
 function DataTypeOption.new(location, hidden, name, values, nameLocation)
     return setmetatable({
+        kind = "DataTypeOption",
         location = location,
         hidden = hidden == true,
         name = name,
@@ -54,6 +57,57 @@ function DataTypeOption:iterate(f)
             v.type:iterate(f)
         end
     end
+end
+
+---Build the `DataOption` description that lives inside the resulting `TData` type.
+---@return DataOption
+function DataTypeOption:dataOption()
+    local DataOption = require("compiler.ast.parsed.type_data").DataOption
+    local types = {}
+    for i, v in ipairs(self.values) do
+        types[i] = v.type
+    end
+    return DataOption.new(self.name, self.hidden, types, self.nameLocation)
+end
+
+---Build the constructor `Definition` corresponding to this option.
+---@param moduleName QualifiedIdentifier
+---@param dataName Identifier
+---@param dataType Type
+---@param hidden boolean
+---@return Definition
+function DataTypeOption:constructor(moduleName, dataName, dataType, hidden)
+    local Definition = require("compiler.ast.parsed.definition").Definition
+    local Constructor = require("compiler.ast.parsed.expression_constructor").Constructor
+    local Var = require("compiler.ast.parsed.expression_var").Var
+    local PNamed = require("compiler.ast.parsed.pattern_named").PNamed
+    local TFunc = require("compiler.ast.parsed.type_func").TFunc
+
+    local type_ = dataType
+    if #self.values > 0 then
+        local paramTypes = {}
+        for i, v in ipairs(self.values) do
+            paramTypes[i] = v.type
+        end
+        ---@type Type
+        type_ = assert(TFunc.new(self.location, paramTypes, dataType))
+    end
+
+    local args = {}
+    for i, v in ipairs(self.values) do
+        args[i] = Var.new(self.location, "_" .. v.name)
+    end
+    local body = Constructor.new(
+        self.location, moduleName, dataName, self.name, self.nameLocation, args)
+
+    local params = {}
+    for i, v in ipairs(self.values) do
+        params[i] = PNamed.new(self.location, "_" .. v.name, v.location)
+    end
+
+    return Definition.new(
+        self.location, self.hidden or hidden, self.name,
+        self.nameLocation, params, body, type_)
 end
 
 ---@class DataType : Statement
@@ -94,10 +148,34 @@ function DataType:iterate(f)
     end
 end
 
----@return nil
----@return string
-function DataType:normalize()
-    return nil, "TODO: normalize"
+---Lower this data type definition into an alias + per-option constructors.
+---@param moduleName QualifiedIdentifier
+---@return Alias dataAlias
+---@return Definition[] defs
+function DataType:flatten(moduleName)
+    local TParameter = require("compiler.ast.parsed.type_parameter").TParameter
+    local TData = require("compiler.ast.parsed.type_data").TData
+    local Alias = require("compiler.ast.parsed.alias").Alias
+
+    local typeArgs = {}
+    for i, p in ipairs(self.params) do
+        typeArgs[i] = TParameter.new(self.location, p)
+    end
+    local options = {}
+    for i, opt in ipairs(self.options) do
+        options[i] = opt:dataOption()
+    end
+    local type_ = TData.new(
+        self.location, makeFullIdentifier(moduleName, self.name),
+        typeArgs, options, self.nameLocation)
+    local dataAlias = Alias.new(
+        self.location, self.hidden, self.name, self.params, type_,
+        self.nameLocation)
+    local defs = {}
+    for i, opt in ipairs(self.options) do
+        defs[i] = opt:constructor(moduleName, self.name, type_, self.hidden)
+    end
+    return dataAlias, defs
 end
 
 return {

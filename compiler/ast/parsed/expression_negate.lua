@@ -1,4 +1,7 @@
 local Expression = require("compiler.ast.parsed.expression").Expression
+local NApply = require("compiler.ast.normalized.expression_apply").NApply
+local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
+local builtins = require("compiler.common.builtins")
 
 ---@class Negate : Expression
 ---@field kind "Negate"
@@ -26,10 +29,21 @@ function Negate:iterate(f)
     end
 end
 
----@return nil
----@return string
-function Negate:normalize()
-    return nil, "TODO: normalize"
+---@param locals table<Identifier, NormPattern>
+---@param modules table<QualifiedIdentifier, Module>
+---@param module Module
+---@param normalizedModule NormModule
+---@return NormExpression|nil
+---@return string|nil error
+function Negate:normalize(locals, modules, module, normalizedModule)
+    local nested, err = self.nested:normalize(locals, modules, module, normalizedModule)
+    if nested == nil then
+        return nil, err
+    end
+    return self:setSuccessor(NApply.new(
+        self.location,
+        NGlobal.new(self.location, builtins.NarBaseMathName, builtins.NarNegName),
+        { nested })), nil
 end
 
 return { Negate = Negate }
