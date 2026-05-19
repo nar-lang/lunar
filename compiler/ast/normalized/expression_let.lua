@@ -76,4 +76,43 @@ function NLet:extractUsedLocalsSet(definedLocals, usedLocals)
     self.nested:extractUsedLocalsSet(definedLocals, usedLocals)
 end
 
+---@param src TypeParamsMap
+---@return TypeParamsMap
+local function cloneTypeParams(src)
+    local out = {}
+    for k, v in pairs(src) do
+        out[k] = v
+    end
+    return out
+end
+
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NLet:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyLet = require("compiler.ast.typed.expression_let").TyLet
+    local localTypeParams = cloneTypeParams(typeParams)
+    local pattern, err = self.pattern:annotate(
+        ctx, localTypeParams, modules, typedModules, moduleName, true, stack)
+    if err ~= nil then
+        return nil, err
+    end
+    local value, verr = self.value:annotate(
+        ctx, localTypeParams, modules, typedModules, moduleName, stack)
+    if verr ~= nil then
+        return nil, verr
+    end
+    local body, berr = self.nested:annotate(
+        ctx, localTypeParams, modules, typedModules, moduleName, stack)
+    if berr ~= nil then
+        return nil, berr
+    end
+    return self:setSuccessor(TyLet.new(ctx, self.location, pattern, value, body))
+end
+
 return { NLet = NLet }

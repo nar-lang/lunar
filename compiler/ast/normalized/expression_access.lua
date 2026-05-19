@@ -52,4 +52,21 @@ function NAccess:extractUsedLocalsSet(definedLocals, usedLocals)
     self.record:extractUsedLocalsSet(definedLocals, usedLocals)
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NAccess:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyAccess = require("compiler.ast.typed.expression_access").TyAccess
+    local record, err = self.record:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    if err ~= nil then
+        return nil, err
+    end
+    return self:setSuccessor(TyAccess.new(ctx, self.location, self.fieldName, record))
+end
+
 return { NAccess = NAccess }

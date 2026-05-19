@@ -76,4 +76,28 @@ function NRecord:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NRecord:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local recordMod = require("compiler.ast.typed.expression_record")
+    local TyRecord = recordMod.TyRecord
+    local TyRecordField = recordMod.TyRecordField
+    ---@type table[]
+    local fields = {}
+    for i, f in ipairs(self.fields) do
+        local value, err = f.value:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+        if err ~= nil then
+            return nil, err
+        end
+        fields[i] = TyRecordField.new(ctx, self.location, f.name, value)
+    end
+    return self:setSuccessor(TyRecord.new(ctx, self.location, fields))
+end
+
 return { NRecord = NRecord, NRecordField = NRecordField }

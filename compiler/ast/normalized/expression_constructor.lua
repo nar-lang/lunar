@@ -66,4 +66,45 @@ function NConstructor:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NConstructor:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local TyConstructor = require("compiler.ast.typed.expression_constructor").TyConstructor
+    local makeFullIdentifier = require("compiler.common.builtins").makeFullIdentifier
+
+    local ctorDef, err = utils.getAnnotatedGlobal(
+        self.moduleName, self.optionName, modules, typedModules, stack, self.location)
+    if err ~= nil then
+        return nil, err
+    end
+    local t = ctorDef.declaredType
+    if t ~= nil and #ctorDef.params > 0 and t.kind == "TFunc" then
+        t = t.return_
+    end
+    ---@type TypedExpression[]
+    local args = {}
+    for i, x in ipairs(self.args) do
+        local a, aerr = x:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+        if aerr ~= nil then
+            return nil, aerr
+        end
+        args[i] = a
+    end
+    ---@type TData|nil
+    local dt = nil
+    if t ~= nil and t.kind == "TData" then
+        dt = t
+    end
+    local dataName = makeFullIdentifier(self.moduleName, self.dataName)
+    return self:setSuccessor(TyConstructor.new(
+        ctx, self.location, dataName, self.optionName, dt, args))
+end
+
 return { NConstructor = NConstructor }

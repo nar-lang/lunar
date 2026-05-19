@@ -60,4 +60,30 @@ function NCall:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NCall:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyCall = require("compiler.ast.typed.expression_call").TyCall
+    ---@type TypedExpression[]
+    local args = {}
+    for i, x in ipairs(self.args) do
+        local a, err = x:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+        if err ~= nil then
+            return nil, err
+        end
+        args[i] = a
+    end
+    local call, err = TyCall.new(ctx, self.location, self.name, args)
+    if err ~= nil then
+        return nil, err
+    end
+    return self:setSuccessor(call)
+end
+
 return { NCall = NCall }

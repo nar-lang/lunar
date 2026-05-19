@@ -1,6 +1,10 @@
 local Location = require("compiler.ast.location").Location
 local Const = require("compiler.ast.const")
 local CUnit = Const.CUnit
+local CChar = Const.CChar
+local CString = Const.CString
+local CInt = Const.CInt
+local CFloat = Const.CFloat
 local misc = require("compiler.ast.misc")
 
 local typeData = require("compiler.ast.parsed.type_data")
@@ -650,7 +654,7 @@ function Parser.parseConst(src)
         return nil, cErr
     end
     if cValue ~= nil then
-        return { kind = "CChar", value = cValue }, nil
+        return CChar.new(cValue), nil
     end
 
     local sValue, sErr = Parser.parseString(src)
@@ -658,7 +662,7 @@ function Parser.parseConst(src)
         return nil, sErr
     end
     if sValue ~= nil then
-        return { kind = "CString", value = sValue }, nil
+        return CString.new(sValue), nil
     end
 
     local iValue, fValue, nErr = Parser.parseNumber(src)
@@ -666,10 +670,10 @@ function Parser.parseConst(src)
         return nil, nErr
     end
     if fValue ~= nil then
-        return { kind = "CFloat", value = fValue }, nil
+        return CFloat.new(fValue), nil
     end
     if iValue ~= nil then
-        return { kind = "CInt", value = iValue }, nil
+        return CInt.new(iValue), nil
     end
 
     return nil, nil

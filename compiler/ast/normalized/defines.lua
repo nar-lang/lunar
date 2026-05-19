@@ -1,8 +1,11 @@
 ---@alias NormPatternMap table<Identifier, table>
+---@alias TypeParamsMap table<Identifier, TypedType>
+---@alias PlaceholderMap table<FullIdentifier, TypedType>
 
 ---@class NormStatement
 ---@field kind string
 ---@field location Location
+---@field successor TypedStatement|nil
 local NormStatement = {}
 NormStatement.__index = NormStatement
 
@@ -10,6 +13,15 @@ NormStatement.__index = NormStatement
 function NormStatement:iterate(f)
     error("abstract method 'iterate' not implemented for kind=" .. tostring(self.kind), 2)
 end
+
+---Set the typed successor for this normalized node and return it.
+---@generic T
+---@param typed T
+---@return T
+function NormStatement:setSuccessor(typed)
+    self.successor = typed
+    return typed
+ end
 
 ---@param offset integer
 ---@return string

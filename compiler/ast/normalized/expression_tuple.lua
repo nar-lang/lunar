@@ -57,4 +57,26 @@ function NTuple:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NTuple:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyTuple = require("compiler.ast.typed.expression_tuple").TyTuple
+    ---@type TypedExpression[]
+    local items = {}
+    for i, x in ipairs(self.items) do
+        local it, err = x:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+        if err ~= nil then
+            return nil, err
+        end
+        items[i] = it
+    end
+    return self:setSuccessor(TyTuple.new(ctx, self.location, items))
+end
+
 return { NTuple = NTuple }

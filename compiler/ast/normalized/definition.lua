@@ -91,4 +91,62 @@ function NormDefinition:iterate(f)
     end
 end
 
+---Annotate this normalized definition into a typed definition.
+---Detects cycles via the `stack` (matches by `id`).
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedDefinition|nil def
+---@return string|nil err
+function NormDefinition:annotate(modules, typedModules, moduleName, stack)
+    stack = stack or {}
+    for _, sd in ipairs(stack) do
+        if sd.id == self.id then
+            return sd, nil
+        end
+    end
+
+    local TypedDefinition = require("compiler.ast.typed.definition").TypedDefinition
+    local utils = require("compiler.ast.normalized.utils")
+
+    local typedDef = TypedDefinition.new(
+        self.location, self.id, self.hidden, self.name_, self.nameLocation)
+    ---@type TypeParamsMap
+    local localTypeParams = {}
+
+    local annotatedDeclaredType, err = utils.annotateTypeSafe(
+        typedDef.ctx, self.declaredType, {}, true)
+    if err ~= nil then
+        return nil, err
+    end
+    typedDef:setDeclaredType(annotatedDeclaredType)
+
+    ---@type TypedPattern[]
+    local params = {}
+    for i, p in ipairs(self.params_) do
+        local tp, perr = p:annotate(
+            typedDef.ctx, localTypeParams, modules, typedModules, moduleName, true, stack)
+        if perr ~= nil then
+            return nil, perr
+        end
+        params[i] = tp
+    end
+    typedDef:setParams(params)
+
+    stack[#stack + 1] = typedDef
+    if self.body_ ~= nil then
+        local body, berr = self.body_:annotate(
+            typedDef.ctx, localTypeParams, modules, typedModules, moduleName, stack)
+        if berr ~= nil then
+            return nil, berr
+        end
+        typedDef:setExpression(body)
+    end
+    stack[#stack] = nil
+
+    self.successor = typedDef
+    return typedDef, nil
+end
+
 return { NormDefinition = NormDefinition }

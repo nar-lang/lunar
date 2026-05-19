@@ -1,4 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
+local TRecord = require("compiler.ast.typed.type_record").TRecord
 
 ---@class NTRecord : NormType
 ---@field kind "NTRecord"
@@ -26,6 +27,28 @@ function NTRecord:iterate(f)
             v:iterate(f)
         end
     end
+end
+
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTRecord:annotate(ctx, params, source, placeholders)
+    ---@type table<Identifier, TypedType>
+    local fields = {}
+    for n, v in pairs(self.fields) do
+        if v == nil then
+            return nil, "record field type is not declared"
+        end
+        local x, err = v:annotate(ctx, params, source, placeholders)
+        if err ~= nil then
+            return nil, err
+        end
+        fields[n] = x
+    end
+    return self:setSuccessor(TRecord.new(self.location, fields, false))
 end
 
 return { NTRecord = NTRecord }

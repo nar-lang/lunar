@@ -7,13 +7,23 @@
 -- parsed first, generate + normalize is run with the full module map, and the
 -- normalized AST tree is written to `<file>.tree.normalized.lua.txt`.
 --
--- Usage: lua lunar/cli/treedump.lua [--normalized] <root> [<root> ...]
+-- With the `--typed` flag, normalized modules are additionally lowered into
+-- the typed AST via `module:annotate(...)` and the resulting typed tree is
+-- written to `<file>.tree.typed.lua.txt`.
+--
+-- With the `--checked` flag, typed modules additionally run checkTypes()
+-- (Hindley-Milner unification) and checkPatterns() (exhaustiveness +
+-- redundancy). The resulting fully-typed tree is written to
+-- `<file>.tree.checked.lua.txt`.
+--
+-- Usage: lua lunar/cli/treedump.lua [--normalized | --typed | --checked] <root> [<root> ...]
 --
 -- Module roots are resolved relative to the workspace's `lunar/` folder
 -- (which must be on package.path).
 
 local Parser = require("compiler.parser")
 local NormalizedTreePrint = require("compiler.ast.normalized.tree_print")
+local TypedTreePrint = require("compiler.ast.typed.tree_print")
 
 ---@param dir string
 ---@return string[]
@@ -55,9 +65,18 @@ local function writeAll(path, data)
 end
 
 local normalizedMode = false
+local typedMode = false
+local checkedMode = false
 local roots = {}
 for _, a in ipairs(arg) do
     if a == "--normalized" then
+        normalizedMode = true
+    elseif a == "--typed" then
+        typedMode = true
+        normalizedMode = true
+    elseif a == "--checked" then
+        checkedMode = true
+        typedMode = true
         normalizedMode = true
     else
         roots[#roots + 1] = a
@@ -65,7 +84,7 @@ for _, a in ipairs(arg) do
 end
 
 if #roots < 1 then
-    io.stderr:write("usage: treedump [--normalized] <root> [<root> ...]\n")
+    io.stderr:write("usage: treedump [--normalized | --typed | --checked] <root> [<root> ...]\n")
     os.exit(2)
 end
 
@@ -165,3 +184,85 @@ for _, n in ipairs(names) do
 end
 
 io.write(string.format("treedump (normalized): %d ok, %d failed\n", totalOk, totalErr))
+
+if not typedMode then
+    return
+end
+
+-- typed mode --------------------------------------------------------------
+
+-- 6) Annotate each normalized module into a typed module.
+---@type table<QualifiedIdentifier, TypedModule>
+local typedModules = {}
+for _, n in ipairs(names) do
+    local nm = normalizedModules[n]
+    if nm ~= nil then
+        local errs = nm:annotate(normalizedModules, typedModules)
+        if errs ~= nil then
+            for _, e in ipairs(errs) do
+                io.stderr:write("annotate " .. tostring(n) .. ": " .. tostring(e) .. "\n")
+                totalErr = totalErr + 1
+            end
+        end
+    end
+end
+
+-- 7) Write typed outputs.
+local typedOk = 0
+for _, n in ipairs(names) do
+    local tm = typedModules[n]
+    local path = moduleFile[n]
+    if tm ~= nil and path ~= nil then
+        writeAll(path .. ".tree.typed.lua.txt", TypedTreePrint.moduleStringTree(tm, 0))
+        typedOk = typedOk + 1
+    end
+end
+
+io.write(string.format("treedump (typed): %d ok, %d failed\n", typedOk, totalErr))
+
+if not checkedMode then
+    return
+end
+
+-- checked mode ------------------------------------------------------------
+
+-- 8) Run Hindley-Milner type checking on every typed module.
+for _, n in ipairs(names) do
+    local tm = typedModules[n]
+    if tm ~= nil then
+        local errs = tm:checkTypes()
+        if errs ~= nil then
+            for _, e in ipairs(errs) do
+                io.stderr:write("checkTypes " .. tostring(n) .. ": " .. tostring(e) .. "\n")
+                totalErr = totalErr + 1
+            end
+        end
+    end
+end
+
+-- 9) Run pattern-match exhaustiveness/redundancy checks.
+for _, n in ipairs(names) do
+    local tm = typedModules[n]
+    if tm ~= nil then
+        local errs = tm:checkPatterns()
+        if errs ~= nil then
+            for _, e in ipairs(errs) do
+                io.stderr:write("checkPatterns " .. tostring(n) .. ": " .. tostring(e) .. "\n")
+                totalErr = totalErr + 1
+            end
+        end
+    end
+end
+
+-- 10) Write checked outputs (fully-typed tree dump).
+local checkedOk = 0
+for _, n in ipairs(names) do
+    local tm = typedModules[n]
+    local path = moduleFile[n]
+    if tm ~= nil and path ~= nil then
+        writeAll(path .. ".tree.checked.lua.txt", TypedTreePrint.moduleStringTree(tm, 0))
+        checkedOk = checkedOk + 1
+    end
+end
+
+io.write(string.format("treedump (checked): %d ok, %d failed\n", checkedOk, totalErr))

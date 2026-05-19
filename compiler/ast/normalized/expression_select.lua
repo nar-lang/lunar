@@ -102,4 +102,50 @@ function NSelect:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param src TypeParamsMap
+---@return TypeParamsMap
+local function cloneTypeParams(src)
+    local out = {}
+    for k, v in pairs(src) do
+        out[k] = v
+    end
+    return out
+end
+
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NSelect:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local selectMod = require("compiler.ast.typed.expression_select")
+    local TySelect = selectMod.TySelect
+    local TySelectCase = selectMod.TySelectCase
+    local condition, err = self.condition:annotate(
+        ctx, typeParams, modules, typedModules, moduleName, stack)
+    if err ~= nil then
+        return nil, err
+    end
+    ---@type table[]
+    local cases = {}
+    for i, c in ipairs(self.cases) do
+        local localTypeParams = cloneTypeParams(typeParams)
+        local pattern, perr = c.pattern:annotate(
+            ctx, localTypeParams, modules, typedModules, moduleName, false, stack)
+        if perr ~= nil then
+            return nil, perr
+        end
+        local expr, eerr = c.expression:annotate(
+            ctx, localTypeParams, modules, typedModules, moduleName, stack)
+        if eerr ~= nil then
+            return nil, eerr
+        end
+        cases[i] = TySelectCase.new(c.location, pattern, expr)
+    end
+    return self:setSuccessor(TySelect.new(ctx, self.location, condition, cases))
+end
+
 return { NSelect = NSelect, NSelectCase = NSelectCase }

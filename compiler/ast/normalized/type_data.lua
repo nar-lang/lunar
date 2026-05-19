@@ -1,4 +1,8 @@
 local NormType = require("compiler.ast.normalized.type").NormType
+local typedTData = require("compiler.ast.typed.type_data")
+local TData = typedTData.TData
+local DataOption = typedTData.DataOption
+local makeDataOptionIdentifier = require("compiler.common.builtins").makeDataOptionIdentifier
 
 ---@class NDataOption
 ---@field name Identifier
@@ -60,6 +64,57 @@ function NTData:iterate(f)
             end
         end
     end
+end
+
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTData:annotate(ctx, params, source, placeholders)
+    if placeholders == nil then
+        placeholders = {}
+    end
+    ---@type TypedType[]
+    local args = {}
+    for i, t in ipairs(self.args) do
+        if t == nil then
+            return nil, "type parameter is not declared"
+        end
+        local x, err = t:annotate(ctx, params, source, placeholders)
+        if err ~= nil then
+            return nil, err
+        end
+        args[i] = x
+    end
+    local annotatedData = TData.new(self.location, self.name, args, nil)
+    placeholders[self.name] = annotatedData
+    ---@type DataOption[]
+    local options = {}
+    for i, opt in ipairs(self.options) do
+        ---@type TypedType[]
+        local values = {}
+        for j, v in ipairs(opt.values) do
+            if v == nil then
+                return nil, "option value type is not declared"
+            end
+            local x, err = v:annotate(ctx, params, source, placeholders)
+            if err ~= nil then
+                return nil, err
+            end
+            -- A NTPlaceholder may legitimately resolve to nil when the
+            -- placeholder is queried before its enclosing data type has
+            -- registered itself. Skip the slot rather than inserting a
+            -- nil hole (which would break `ipairs` iteration later).
+            if x ~= nil then
+                values[#values + 1] = x
+            end
+        end
+        options[i] = DataOption.new(makeDataOptionIdentifier(self.name, opt.name), values)
+    end
+    annotatedData:setOptions(options)
+    return self:setSuccessor(annotatedData)
 end
 
 return { NTData = NTData, NDataOption = NDataOption }

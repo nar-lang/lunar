@@ -52,4 +52,30 @@ function NPRecord:extractLocals(locals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param typeMapSource boolean
+---@param stack TypedDefinition[]
+---@return TypedPattern|nil p
+---@return string|nil err
+function NPRecord:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local recordMod = require("compiler.ast.typed.pattern_record")
+    local TyPRecord = recordMod.TyPRecord
+    local TyPRecordField = recordMod.TyPRecordField
+    ---@type table[]
+    local fields = {}
+    for i, f in ipairs(self.fields) do
+        fields[i] = TyPRecordField.new(ctx, f.location, f.name, nil)
+    end
+    local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
+    if derr ~= nil then
+        return nil, derr
+    end
+    return self:setSuccessor(TyPRecord.new(ctx, self.location, declared, fields))
+end
+
 return { NPRecord = NPRecord, NPRecordField = NPRecordField }

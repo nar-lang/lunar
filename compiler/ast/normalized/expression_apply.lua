@@ -66,4 +66,34 @@ function NApply:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NApply:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyApply = require("compiler.ast.typed.expression_apply").TyApply
+    local fn, err = self.func:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    if err ~= nil then
+        return nil, err
+    end
+    ---@type TypedExpression[]
+    local args = {}
+    for i, x in ipairs(self.args) do
+        local a, err2 = x:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+        if err2 ~= nil then
+            return nil, err2
+        end
+        args[i] = a
+    end
+    local apply, perr = TyApply.new(ctx, self.location, fn, args)
+    if perr ~= nil then
+        return nil, perr
+    end
+    return self:setSuccessor(apply)
+end
+
 return { NApply = NApply }

@@ -66,4 +66,20 @@ function NLocal:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NLocal:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyLocal = require("compiler.ast.typed.expression_local").TyLocal
+    if self.target == nil then
+        return nil, string.format("local variable `%s` not resolved", tostring(self.name))
+    end
+    return self:setSuccessor(TyLocal.new(ctx, self.location, self.name, self.target.successor))
+end
+
 return { NLocal = NLocal }

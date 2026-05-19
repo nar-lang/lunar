@@ -46,4 +46,24 @@ end
 function NGlobal:extractUsedLocalsSet(definedLocals, usedLocals)
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NGlobal:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local TyGlobal = require("compiler.ast.typed.expression_global").TyGlobal
+    local targetDef, err = utils.getAnnotatedGlobal(
+        self.moduleName, self.definitionName, modules, typedModules, stack, self.location)
+    if err ~= nil then
+        return nil, err
+    end
+    return self:setSuccessor(TyGlobal.new(
+        ctx, self.location, self.moduleName, self.definitionName, targetDef))
+end
+
 return { NGlobal = NGlobal }

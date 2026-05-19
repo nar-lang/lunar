@@ -43,4 +43,17 @@ end
 function NConst:extractUsedLocalsSet(definedLocals, usedLocals)
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NConst:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local TyConst = require("compiler.ast.typed.expression_const").TyConst
+    return self:setSuccessor(TyConst.new(ctx, self.location, self.value))
+end
+
 return { NConst = NConst }

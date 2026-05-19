@@ -109,4 +109,54 @@ function NormModule:extractLambda(loc, parentName, params, body, locals, name, n
     return lambdaDef, usedLocals, replacement
 end
 
+---Annotate this module and all its dependencies into typed modules.
+---Idempotent: returns nil errors if already annotated.
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@return string[]
+function NormModule:annotate(modules, typedModules)
+    ---@type string[]
+    local errors = {}
+    if typedModules[self.name] ~= nil then
+        return errors
+    end
+
+    -- Recursively annotate dependencies first. Iterate sorted for
+    -- deterministic processing.
+    local depNames = self:getDependencies()
+    for _, depName in ipairs(depNames) do
+        if depName ~= self.name then
+            local depModule = modules[depName]
+            if depModule == nil then
+                errors[#errors + 1] = string.format(
+                    "module dependency `%s` not found", tostring(depName))
+                return errors
+            end
+            local depErrors = depModule:annotate(modules, typedModules)
+            if #depErrors > 0 then
+                for _, e in ipairs(depErrors) do
+                    errors[#errors + 1] = e
+                end
+                return errors
+            end
+        end
+    end
+
+    local TypedModule = require("compiler.ast.typed.module").TypedModule
+    local o = TypedModule.new(self.location, self.name, self.dependencies, nil)
+    typedModules[self.name] = o
+
+    for i = 1, #self.definitions do
+        local def = self.definitions[i]
+        local typedDef, err = def:annotate(modules, typedModules, self.name, nil)
+        if err ~= nil then
+            errors[#errors + 1] = err
+        else
+            o:addDefinition(typedDef)
+        end
+    end
+
+    return errors
+end
+
 return { NormModule = NormModule }

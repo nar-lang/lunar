@@ -49,4 +49,42 @@ function NPOption:extractLocals(locals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param typeMapSource boolean
+---@param stack TypedDefinition[]
+---@return TypedPattern|nil p
+---@return string|nil err
+function NPOption:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local TyPOption = require("compiler.ast.typed.pattern_option").TyPOption
+    local def, derr = utils.getAnnotatedGlobal(
+        self.moduleName, self.definitionName, modules, typedModules, stack, self.location)
+    if derr ~= nil then
+        return nil, derr
+    end
+    ---@type TypedPattern[]
+    local args = {}
+    for i, x in ipairs(self.values) do
+        local a, aerr = x:annotate(
+            ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+        if aerr ~= nil then
+            return nil, aerr
+        end
+        args[i] = a
+    end
+    local declared, dtErr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
+    if dtErr ~= nil then
+        return nil, dtErr
+    end
+    local option, oerr = TyPOption.new(ctx, self.location, declared, def, args)
+    if oerr ~= nil then
+        return nil, oerr
+    end
+    return self:setSuccessor(option)
+end
+
 return { NPOption = NPOption }

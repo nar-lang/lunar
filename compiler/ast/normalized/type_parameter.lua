@@ -1,4 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
+local newTParameter = require("compiler.ast.typed.type_unbound").newTParameter
 
 ---@class NTParameter : NormType
 ---@field kind "NTParameter"
@@ -21,6 +22,25 @@ end
 ---@param f fun(stmt: NormStatement)
 function NTParameter:iterate(f)
     f(self)
+end
+
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTParameter:annotate(ctx, params, source, placeholders)
+    local id = params[self.name]
+    if id ~= nil then
+        return self:setSuccessor(id)
+    end
+    if source then
+        local r = newTParameter(ctx, self.location, self, self.name)
+        params[self.name] = r
+        return self:setSuccessor(r)
+    end
+    return nil, "unknown type parameter"
 end
 
 return { NTParameter = NTParameter }

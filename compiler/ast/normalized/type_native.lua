@@ -1,4 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
+local TNative = require("compiler.ast.typed.type_native").TNative
 
 ---@class NTNative : NormType
 ---@field kind "NTNative"
@@ -29,6 +30,28 @@ function NTNative:iterate(f)
             a:iterate(f)
         end
     end
+end
+
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTNative:annotate(ctx, params, source, placeholders)
+    ---@type TypedType[]
+    local args = {}
+    for i, t in ipairs(self.args) do
+        if t == nil then
+            return nil, "type parameter is not declared"
+        end
+        local x, err = t:annotate(ctx, params, source, placeholders)
+        if err ~= nil then
+            return nil, err
+        end
+        args[i] = x
+    end
+    return self:setSuccessor(TNative.new(self.location, self.name, args))
 end
 
 return { NTNative = NTNative }

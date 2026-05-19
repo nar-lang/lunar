@@ -1,4 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
+local TFunc = require("compiler.ast.typed.type_func").TFunc
 
 ---@class NTFunc : NormType
 ---@field kind "NTFunc"
@@ -32,6 +33,35 @@ function NTFunc:iterate(f)
     if self.return_ ~= nil then
         self.return_:iterate(f)
     end
+end
+
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTFunc:annotate(ctx, params, source, placeholders)
+    ---@type TypedType[]
+    local funcParams = {}
+    for i, t in ipairs(self.params) do
+        if t == nil then
+            return nil, "function parameter type is not declared"
+        end
+        local x, err = t:annotate(ctx, params, source, placeholders)
+        if err ~= nil then
+            return nil, err
+        end
+        funcParams[i] = x
+    end
+    if self.return_ == nil then
+        return nil, "function return type is not declared"
+    end
+    local ret, err = self.return_:annotate(ctx, params, source, placeholders)
+    if err ~= nil then
+        return nil, err
+    end
+    return self:setSuccessor(TFunc.new(self.location, funcParams, ret))
 end
 
 return { NTFunc = NTFunc }

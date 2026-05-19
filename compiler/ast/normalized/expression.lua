@@ -29,4 +29,17 @@ function NormExpression:extractUsedLocalsSet(definedLocals, usedLocals)
     error("abstract method 'extractUsedLocalsSet' not implemented for kind=" .. tostring(self.kind), 2)
 end
 
+---Annotate a normalized expression into a typed expression.
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NormExpression:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    error("abstract method 'annotate' not implemented for kind=" .. tostring(self.kind), 2)
+end
+
 return { NormExpression = NormExpression }

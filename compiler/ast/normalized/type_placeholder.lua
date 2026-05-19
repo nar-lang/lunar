@@ -24,4 +24,24 @@ function NTPlaceholder:iterate(f)
     f(self)
 end
 
+---Returns the cached typed type registered under this placeholder name, or
+---nil (registering the slot for later assignment by the data definition).
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTPlaceholder:annotate(ctx, params, source, placeholders)
+    if placeholders == nil then
+        return nil, nil
+    end
+    local p = placeholders[self.name]
+    if p ~= nil then
+        return p, nil
+    end
+    placeholders[self.name] = nil
+    return nil, nil
+end
+
 return { NTPlaceholder = NTPlaceholder }

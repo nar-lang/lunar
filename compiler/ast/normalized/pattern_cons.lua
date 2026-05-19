@@ -48,4 +48,33 @@ function NPCons:extractLocals(locals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param typeMapSource boolean
+---@param stack TypedDefinition[]
+---@return TypedPattern|nil p
+---@return string|nil err
+function NPCons:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local TyPCons = require("compiler.ast.typed.pattern_cons").TyPCons
+    local head, herr = self.head:annotate(
+        ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    if herr ~= nil then
+        return nil, herr
+    end
+    local tail, terr = self.tail:annotate(
+        ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    if terr ~= nil then
+        return nil, terr
+    end
+    local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
+    if derr ~= nil then
+        return nil, derr
+    end
+    return self:setSuccessor(TyPCons.new(ctx, self.location, declared, head, tail))
+end
+
 return { NPCons = NPCons }

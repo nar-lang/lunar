@@ -84,4 +84,43 @@ function NUpdate:extractUsedLocalsSet(definedLocals, usedLocals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param stack TypedDefinition[]
+---@return TypedExpression|nil e
+---@return string|nil err
+function NUpdate:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local recordMod = require("compiler.ast.typed.expression_record")
+    local TyRecordField = recordMod.TyRecordField
+    local TyUpdate = require("compiler.ast.typed.expression_update").TyUpdate
+    ---@type table[]
+    local fields = {}
+    for i, f in ipairs(self.fields) do
+        local value, err = f.value:annotate(
+            ctx, typeParams, modules, typedModules, moduleName, stack)
+        if err ~= nil then
+            return nil, err
+        end
+        fields[i] = TyRecordField.new(ctx, f.location, f.name, value)
+    end
+    if self.moduleName ~= nil and self.moduleName ~= "" then
+        local targetDef, err = utils.getAnnotatedGlobal(
+            self.moduleName, self.recordName, modules, typedModules, stack, self.location)
+        if err ~= nil then
+            return nil, err
+        end
+        return self:setSuccessor(TyUpdate.newGlobal(
+            ctx, self.location, self.moduleName, self.recordName, targetDef, fields))
+    end
+    if self.target == nil then
+        return nil, string.format("local variable `%s` not resolved", tostring(self.recordName))
+    end
+    return self:setSuccessor(TyUpdate.newLocal(
+        ctx, self.location, self.recordName, self.target.successor, fields))
+end
+
 return { NUpdate = NUpdate }

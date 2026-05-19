@@ -1,4 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
+local TTuple = require("compiler.ast.typed.type_tuple").TTuple
 
 ---@class NTTuple : NormType
 ---@field kind "NTTuple"
@@ -26,6 +27,28 @@ function NTTuple:iterate(f)
             it:iterate(f)
         end
     end
+end
+
+---@param ctx SolvingContext
+---@param params TypeParamsMap
+---@param source boolean
+---@param placeholders PlaceholderMap|nil
+---@return TypedType|nil t
+---@return string|nil err
+function NTTuple:annotate(ctx, params, source, placeholders)
+    ---@type TypedType[]
+    local items = {}
+    for i, t in ipairs(self.items) do
+        if t == nil then
+            return nil, "tuple item type is not declared"
+        end
+        local x, err = t:annotate(ctx, params, source, placeholders)
+        if err ~= nil then
+            return nil, err
+        end
+        items[i] = x
+    end
+    return self:setSuccessor(TTuple.new(self.location, items))
 end
 
 return { NTTuple = NTTuple }

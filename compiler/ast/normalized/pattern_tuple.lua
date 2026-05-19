@@ -43,4 +43,37 @@ function NPTuple:extractLocals(locals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param typeMapSource boolean
+---@param stack TypedDefinition[]
+---@return TypedPattern|nil p
+---@return string|nil err
+function NPTuple:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local TyPTuple = require("compiler.ast.typed.pattern_tuple").TyPTuple
+    ---@type TypedPattern[]
+    local items = {}
+    for i, x in ipairs(self.items) do
+        local it, err = x:annotate(
+            ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+        if err ~= nil then
+            return nil, err
+        end
+        items[i] = it
+    end
+    local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
+    if derr ~= nil then
+        return nil, derr
+    end
+    local tuple, terr = TyPTuple.new(ctx, self.location, declared, items)
+    if terr ~= nil then
+        return nil, terr
+    end
+    return self:setSuccessor(tuple)
+end
+
 return { NPTuple = NPTuple }

@@ -43,4 +43,28 @@ function NPAlias:extractLocals(locals)
     end
 end
 
+---@param ctx SolvingContext
+---@param typeParams TypeParamsMap
+---@param modules table<QualifiedIdentifier, NormModule>
+---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param moduleName QualifiedIdentifier
+---@param typeMapSource boolean
+---@param stack TypedDefinition[]
+---@return TypedPattern|nil p
+---@return string|nil err
+function NPAlias:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    local utils = require("compiler.ast.normalized.utils")
+    local TyPAlias = require("compiler.ast.typed.pattern_alias").TyPAlias
+    local nested, err = self.nested:annotate(
+        ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
+    if err ~= nil then
+        return nil, err
+    end
+    local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
+    if derr ~= nil then
+        return nil, derr
+    end
+    return self:setSuccessor(TyPAlias.new(ctx, self.location, declared, self.alias, nested))
+end
+
 return { NPAlias = NPAlias }
