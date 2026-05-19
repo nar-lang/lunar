@@ -11,8 +11,22 @@ TFunc.__index = TFunc
 ---@param location Location
 ---@param params (Type?)[]
 ---@param ret Type?
----@return TFunc
+---@return TFunc?
 function TFunc.new(location, params, ret)
+    if ret == nil then
+        local hasParam = false
+        if params ~= nil then
+            for _, p in ipairs(params) do
+                if p ~= nil then
+                    hasParam = true
+                    break
+                end
+            end
+        end
+        if not hasParam then
+            return nil
+        end
+    end
     return setmetatable({
         kind = "TFunc",
         location = location,

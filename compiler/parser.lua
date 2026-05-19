@@ -488,6 +488,7 @@ function Parser.parseChar(src)
 
     local current = src.text:sub(src.cursor, src.cursor)
     local value = nil
+    local consumed = 1
 
     if current == constants.smbEscape then
         src.cursor = src.cursor + 1
@@ -516,10 +517,28 @@ function Parser.parseChar(src)
             end
         end
     else
-        value = current
+        -- A Nar character literal contains exactly one Unicode codepoint;
+        -- since src.text is a byte string, figure out how many bytes the
+        -- UTF-8 encoding of the first codepoint occupies.
+        local b = string.byte(current)
+        if b < 0x80 then
+            consumed = 1
+        elseif b < 0xC0 then
+            return nil, Parser.newError(src, "invalid UTF-8 sequence in character literal")
+        elseif b < 0xE0 then
+            consumed = 2
+        elseif b < 0xF0 then
+            consumed = 3
+        else
+            consumed = 4
+        end
+        value = src.text:sub(src.cursor, src.cursor + consumed - 1)
+        if #value ~= consumed then
+            return nil, Parser.newError(src, "truncated UTF-8 sequence in character literal")
+        end
     end
 
-    src.cursor = src.cursor + 1
+    src.cursor = src.cursor + consumed
     if (not Parser.isOk(src)) or src.text:sub(src.cursor, src.cursor) ~= constants.smbQuoteChar then
         return nil, Parser.newError(src, "expected " .. constants.smbQuoteChar .. " here")
     end
