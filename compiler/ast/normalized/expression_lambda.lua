@@ -1,4 +1,5 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local utils = require("lunar.compiler.ast.normalized.utils")
 
 ---@class NLambda : NormExpression
 ---@field kind "NLambda"
@@ -33,8 +34,6 @@ function NLambda:iterate(f)
         self.body:iterate(f)
     end
 end
-
-local utils = require("lunar.compiler.ast.normalized.utils")
 
 ---@param parentName Identifier
 ---@param m NormModule
