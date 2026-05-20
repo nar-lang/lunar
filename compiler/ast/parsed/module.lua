@@ -1,6 +1,6 @@
-local Statement = require("compiler.ast.parsed.defines").Statement
-local NormModule = require("compiler.ast.normalized.module").NormModule
-local builtins = require("compiler.common.builtins")
+local Statement = require("lunar.compiler.ast.parsed.defines").Statement
+local NormModule = require("lunar.compiler.ast.normalized.module").NormModule
+local builtins = require("lunar.compiler.common.builtins")
 
 ---@class Module : Statement
 ---@field kind "Module"

@@ -1,7 +1,7 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NUpdate = require("compiler.ast.normalized.expression_update").NUpdate
-local NRecordField = require("compiler.ast.normalized.expression_record").NRecordField
-local utils = require("compiler.ast.parsed.utils")
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NUpdate = require("lunar.compiler.ast.normalized.expression_update").NUpdate
+local NRecordField = require("lunar.compiler.ast.normalized.expression_record").NRecordField
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class Update : Expression
 ---@field kind "Update"

@@ -1,5 +1,5 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPNamed = require("lunar.compiler.ast.normalized.pattern_named").NPNamed
 
 ---@class PNamed : Pattern
 ---@field kind "PNamed"

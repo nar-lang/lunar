@@ -1,5 +1,5 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTFunc = require("compiler.ast.normalized.type_func").NTFunc
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTFunc = require("lunar.compiler.ast.normalized.type_func").NTFunc
 
 ---@class TFunc : Type
 ---@field kind "TFunc"

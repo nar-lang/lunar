@@ -1,5 +1,5 @@
-local Statement = require("compiler.ast.parsed.defines").Statement
-local TData = require("compiler.ast.parsed.type_data").TData
+local Statement = require("lunar.compiler.ast.parsed.defines").Statement
+local TData = require("lunar.compiler.ast.parsed.type_data").TData
 
 ---@class Import : Statement
 ---@field kind "Import"

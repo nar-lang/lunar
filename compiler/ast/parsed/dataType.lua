@@ -1,14 +1,14 @@
-local Statement = require("compiler.ast.parsed.defines").Statement
-local makeFullIdentifier = require("compiler.ast.misc").makeFullIdentifier
-local DataOption = require("compiler.ast.parsed.type_data").DataOption
-local Definition = require("compiler.ast.parsed.definition").Definition
-local Constructor = require("compiler.ast.parsed.expression_constructor").Constructor
-local Var = require("compiler.ast.parsed.expression_var").Var
-local PNamed = require("compiler.ast.parsed.pattern_named").PNamed
-local TFunc = require("compiler.ast.parsed.type_func").TFunc
-local TParameter = require("compiler.ast.parsed.type_parameter").TParameter
-local TData = require("compiler.ast.parsed.type_data").TData
-local Alias = require("compiler.ast.parsed.alias").Alias
+local Statement = require("lunar.compiler.ast.parsed.defines").Statement
+local makeFullIdentifier = require("lunar.compiler.ast.misc").makeFullIdentifier
+local DataOption = require("lunar.compiler.ast.parsed.type_data").DataOption
+local Definition = require("lunar.compiler.ast.parsed.definition").Definition
+local Constructor = require("lunar.compiler.ast.parsed.expression_constructor").Constructor
+local Var = require("lunar.compiler.ast.parsed.expression_var").Var
+local PNamed = require("lunar.compiler.ast.parsed.pattern_named").PNamed
+local TFunc = require("lunar.compiler.ast.parsed.type_func").TFunc
+local TParameter = require("lunar.compiler.ast.parsed.type_parameter").TParameter
+local TData = require("lunar.compiler.ast.parsed.type_data").TData
+local Alias = require("lunar.compiler.ast.parsed.alias").Alias
 
 ---@class DataTypeValue
 ---@field location Location

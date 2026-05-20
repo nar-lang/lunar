@@ -1,4 +1,4 @@
-local treePrint = require("compiler.ast.normalized.tree_print")
+local treePrint = require("lunar.compiler.ast.normalized.tree_print")
 ---@alias NormPatternMap table<Identifier, table>
 ---@alias TypeParamsMap table<Identifier, TypedType>
 ---@alias PlaceholderMap table<FullIdentifier, TypedType>

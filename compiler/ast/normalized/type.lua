@@ -1,4 +1,4 @@
-local NormStatement = require("compiler.ast.normalized.defines").NormStatement
+local NormStatement = require("lunar.compiler.ast.normalized.defines").NormStatement
 
 ---@class NormType : NormStatement
 ---@field kind string

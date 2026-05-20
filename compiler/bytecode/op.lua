@@ -1,5 +1,5 @@
-local PackedInt = require("compiler.bytecode.const_hash").PackedInt
-local PackedFloat = require("compiler.bytecode.const_hash").PackedFloat
+local PackedInt = require("lunar.compiler.bytecode.const_hash").PackedInt
+local PackedFloat = require("lunar.compiler.bytecode.const_hash").PackedFloat
 ---Bytecode op encoder, mirrors nar-compiler/bytecode/op.go byte-for-byte.
 ---
 ---Layout of a single 64-bit op word (little-endian semantics, but stored as a

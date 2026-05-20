@@ -1,7 +1,7 @@
-local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
-local newEquation = require("compiler.ast.typed.equation").newEquation
-local builtins = require("compiler.common.builtins")
-local bytecode = require("compiler.bytecode.op")
+local TypedExpression = require("lunar.compiler.ast.typed.expression").TypedExpression
+local newEquation = require("lunar.compiler.ast.typed.equation").newEquation
+local builtins = require("lunar.compiler.common.builtins")
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class TyGlobal : TypedExpression
 ---@field kind "TyGlobal"

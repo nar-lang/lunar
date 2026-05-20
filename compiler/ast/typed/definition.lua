@@ -1,13 +1,13 @@
-local TypedStatement = require("compiler.ast.typed.defines").TypedStatement
-local SolvingContext = require("compiler.ast.typed.solving_context").SolvingContext
-local equationMod = require("compiler.ast.typed.equation")
+local TypedStatement = require("lunar.compiler.ast.typed.defines").TypedStatement
+local SolvingContext = require("lunar.compiler.ast.typed.solving_context").SolvingContext
+local equationMod = require("lunar.compiler.ast.typed.equation")
 local newEquation = equationMod.newEquation
 local appendUsefulEquations = equationMod.appendUsefulEquations
-local TyFunc = require("compiler.ast.typed.type_func").TyFunc
-local builtins = require("compiler.common.builtins")
-local bytecode = require("compiler.bytecode.op")
-local binaryMod = require("compiler.bytecode.binary")
-local utils = require("compiler.ast.typed.utils")
+local TyFunc = require("lunar.compiler.ast.typed.type_func").TyFunc
+local builtins = require("lunar.compiler.common.builtins")
+local bytecode = require("lunar.compiler.bytecode.op")
+local binaryMod = require("lunar.compiler.bytecode.binary")
+local utils = require("lunar.compiler.ast.typed.utils")
 
 ---@class TypedDefinition : TypedStatement
 ---@field kind "TypedDefinition"

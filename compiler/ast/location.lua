@@ -1,4 +1,4 @@
-local tokens = require("compiler.ast.tokens")
+local tokens = require("lunar.compiler.ast.tokens")
 local SemanticToken = tokens.SemanticToken
 
 ---@class Location

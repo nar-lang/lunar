@@ -1,6 +1,6 @@
 ---Common identifiers shared between parsed/normalized/typed phases.
 
-local misc = require("compiler.ast.misc")
+local misc = require("lunar.compiler.ast.misc")
 local makeFullIdentifier = misc.makeFullIdentifier
 
 ---@type QualifiedIdentifier

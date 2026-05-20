@@ -1,5 +1,5 @@
-local NormType = require("compiler.ast.normalized.type").NormType
-local TyRecordType = require("compiler.ast.typed.type_record").TyRecordType
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
+local TyRecordType = require("lunar.compiler.ast.typed.type_record").TyRecordType
 
 ---@class NTRecord : NormType
 ---@field kind "NTRecord"

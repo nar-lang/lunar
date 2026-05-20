@@ -1,5 +1,5 @@
-local NormType = require("compiler.ast.normalized.type").NormType
-local newTParameter = require("compiler.ast.typed.type_unbound").newTParameter
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
+local newTParameter = require("lunar.compiler.ast.typed.type_unbound").newTParameter
 
 ---@class NTParameter : NormType
 ---@field kind "NTParameter"

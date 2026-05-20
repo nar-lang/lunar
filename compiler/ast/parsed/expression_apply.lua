@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NApply = require("compiler.ast.normalized.expression_apply").NApply
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NApply = require("lunar.compiler.ast.normalized.expression_apply").NApply
 
 ---@class Apply : Expression
 ---@field kind "Apply"

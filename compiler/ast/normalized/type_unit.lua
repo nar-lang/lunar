@@ -1,6 +1,6 @@
-local NormType = require("compiler.ast.normalized.type").NormType
-local TyNative = require("compiler.ast.typed.type_native").TyNative
-local NarBaseBasicsUnit = require("compiler.common.builtins").NarBaseBasicsUnit
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
+local TyNative = require("lunar.compiler.ast.typed.type_native").TyNative
+local NarBaseBasicsUnit = require("lunar.compiler.common.builtins").NarBaseBasicsUnit
 
 ---@class NTUnit : NormType
 ---@field kind "NTUnit"

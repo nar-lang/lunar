@@ -1,9 +1,9 @@
-local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
-local newEquation = require("compiler.ast.typed.equation").newEquation
-local TyNative = require("compiler.ast.typed.type_native").TyNative
-local builtins = require("compiler.common.builtins")
-local CFloat = require("compiler.ast.const").CFloat
-local bytecode = require("compiler.bytecode.op")
+local TypedExpression = require("lunar.compiler.ast.typed.expression").TypedExpression
+local newEquation = require("lunar.compiler.ast.typed.equation").newEquation
+local TyNative = require("lunar.compiler.ast.typed.type_native").TyNative
+local builtins = require("lunar.compiler.common.builtins")
+local CFloat = require("lunar.compiler.ast.const").CFloat
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---Mirror Go's typed.getConstType.
 ---@param ctx SolvingContext

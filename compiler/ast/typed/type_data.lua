@@ -1,5 +1,5 @@
-local TypedType = require("compiler.ast.typed.type").TypedType
-local newEquationBestLoc = require("compiler.ast.typed.equation").newEquationBestLoc
+local TypedType = require("lunar.compiler.ast.typed.type").TypedType
+local newEquationBestLoc = require("lunar.compiler.ast.typed.equation").newEquationBestLoc
 
 ---@class TyDataOption
 ---@field name DataOptionIdentifier

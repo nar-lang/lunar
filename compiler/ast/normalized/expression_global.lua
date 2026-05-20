@@ -1,7 +1,7 @@
-local NormExpression = require("compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("compiler.ast.normalized.module")
-local utils = require("compiler.ast.normalized.utils")
-local TyGlobal = require("compiler.ast.typed.expression_global").TyGlobal
+local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
+local utils = require("lunar.compiler.ast.normalized.utils")
+local TyGlobal = require("lunar.compiler.ast.typed.expression_global").TyGlobal
 
 ---@class NGlobal : NormExpression
 ---@field kind "NGlobal"

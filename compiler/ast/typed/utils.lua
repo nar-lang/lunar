@@ -1,6 +1,6 @@
-local SimpleAnything = require("compiler.ast.typed.simple_pattern").SimpleAnything
-local SimpleLiteral = require("compiler.ast.typed.simple_pattern").SimpleLiteral
-local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
+local SimpleAnything = require("lunar.compiler.ast.typed.simple_pattern").SimpleAnything
+local SimpleLiteral = require("lunar.compiler.ast.typed.simple_pattern").SimpleLiteral
+local SimpleConstructor = require("lunar.compiler.ast.typed.simple_pattern").SimpleConstructor
 
 ---@param p SimplePattern
 ---@return boolean

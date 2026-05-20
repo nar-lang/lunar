@@ -1,6 +1,6 @@
-local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
-local utils = require("compiler.ast.normalized.utils")
-local TyPList = require("compiler.ast.typed.pattern_list").TyPList
+local NormPattern = require("lunar.compiler.ast.normalized.pattern").NormPattern
+local utils = require("lunar.compiler.ast.normalized.utils")
+local TyPList = require("lunar.compiler.ast.typed.pattern_list").TyPList
 
 ---@class NPList : NormPattern
 ---@field kind "NPList"

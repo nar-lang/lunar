@@ -1,4 +1,4 @@
-local TypedStatement = require("compiler.ast.typed.defines").TypedStatement
+local TypedStatement = require("lunar.compiler.ast.typed.defines").TypedStatement
 
 ---@class TypedPattern : TypedStatement
 ---@field kind string

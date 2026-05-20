@@ -1,6 +1,6 @@
-local Statement = require("compiler.ast.parsed.defines").Statement
-local Counters = require("compiler.ast.normalized.defines").Counters
-local NormDefinition = require("compiler.ast.normalized.definition").NormDefinition
+local Statement = require("lunar.compiler.ast.parsed.defines").Statement
+local Counters = require("lunar.compiler.ast.normalized.defines").Counters
+local NormDefinition = require("lunar.compiler.ast.normalized.definition").NormDefinition
 
 ---@class Definition : Statement
 ---@field kind "Definition"

@@ -1,8 +1,8 @@
-local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
-local newEquation = require("compiler.ast.typed.equation").newEquation
-local TyRecordType = require("compiler.ast.typed.type_record").TyRecordType
-local CString = require("compiler.ast.const").CString
-local bytecode = require("compiler.bytecode.op")
+local TypedExpression = require("lunar.compiler.ast.typed.expression").TypedExpression
+local newEquation = require("lunar.compiler.ast.typed.equation").newEquation
+local TyRecordType = require("lunar.compiler.ast.typed.type_record").TyRecordType
+local CString = require("lunar.compiler.ast.const").CString
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class TyRecordField
 ---@field location Location

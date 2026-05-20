@@ -1,6 +1,6 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NLet = require("compiler.ast.normalized.expression_let").NLet
-local cloneMap = require("compiler.ast.parsed.utils").cloneMap
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NLet = require("lunar.compiler.ast.normalized.expression_let").NLet
+local cloneMap = require("lunar.compiler.ast.parsed.utils").cloneMap
 
 ---@class Let : Expression
 ---@field kind "Let"

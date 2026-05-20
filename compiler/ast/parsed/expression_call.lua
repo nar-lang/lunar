@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NCall = require("compiler.ast.normalized.expression_call").NCall
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NCall = require("lunar.compiler.ast.normalized.expression_call").NCall
 
 ---@class Call : Expression
 ---@field kind "Call"

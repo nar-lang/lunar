@@ -26,7 +26,7 @@
 ---  NATIVE   {ptr=any, cmp=function?}                      meta=M_NATIVE
 ---  PATTERN  {patKind=int, name=string, items=array, n=int} meta=M_PATTERN
 
-local OK             = require("runtime.object_kind")
+local OK             = require("lunar.runtime.object_kind")
 
 local Object         = {}
 

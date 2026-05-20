@@ -6,8 +6,8 @@
 local TypedModule = {}
 TypedModule.__index = TypedModule
 
-local builtins = require("compiler.common.builtins")
-local binaryMod = require("compiler.bytecode.binary")
+local builtins = require("lunar.compiler.common.builtins")
+local binaryMod = require("lunar.compiler.bytecode.binary")
 
 ---@param location Location
 ---@param name QualifiedIdentifier

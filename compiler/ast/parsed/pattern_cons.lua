@@ -1,6 +1,6 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPCons = require("compiler.ast.normalized.pattern_cons").NPCons
-local joinErrors = require("compiler.ast.parsed.defines").joinErrors
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPCons = require("lunar.compiler.ast.normalized.pattern_cons").NPCons
+local joinErrors = require("lunar.compiler.ast.parsed.defines").joinErrors
 
 ---@class PCons : Pattern
 ---@field kind "PCons"

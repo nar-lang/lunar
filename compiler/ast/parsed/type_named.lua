@@ -1,4 +1,4 @@
-local Type = require("compiler.ast.parsed.type").Type
+local Type = require("lunar.compiler.ast.parsed.type").Type
 
 ---@class TNamed : Type
 ---@field kind "TNamed"

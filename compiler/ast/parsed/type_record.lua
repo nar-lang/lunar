@@ -1,5 +1,5 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTRecord = require("compiler.ast.normalized.type_record").NTRecord
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTRecord = require("lunar.compiler.ast.normalized.type_record").NTRecord
 
 ---@class TRecord : Type
 ---@field kind "TRecord"

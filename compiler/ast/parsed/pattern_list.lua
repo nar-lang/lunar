@@ -1,6 +1,6 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPList = require("compiler.ast.normalized.pattern_list").NPList
-local joinErrorList = require("compiler.ast.parsed.defines").joinErrorList
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPList = require("lunar.compiler.ast.normalized.pattern_list").NPList
+local joinErrorList = require("lunar.compiler.ast.parsed.defines").joinErrorList
 
 ---@class PList : Pattern
 ---@field kind "PList"

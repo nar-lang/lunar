@@ -1,8 +1,8 @@
-local NormType = require("compiler.ast.normalized.type").NormType
-local typedTData = require("compiler.ast.typed.type_data")
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
+local typedTData = require("lunar.compiler.ast.typed.type_data")
 local TyData = typedTData.TyData
 local TyDataOption = typedTData.TyDataOption
-local makeDataOptionIdentifier = require("compiler.common.builtins").makeDataOptionIdentifier
+local makeDataOptionIdentifier = require("lunar.compiler.common.builtins").makeDataOptionIdentifier
 
 ---@class NDataOption
 ---@field name Identifier

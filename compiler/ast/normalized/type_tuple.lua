@@ -1,5 +1,5 @@
-local NormType = require("compiler.ast.normalized.type").NormType
-local TyTupleType = require("compiler.ast.typed.type_tuple").TyTupleType
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
+local TyTupleType = require("lunar.compiler.ast.typed.type_tuple").TyTupleType
 
 ---@class NTTuple : NormType
 ---@field kind "NTTuple"

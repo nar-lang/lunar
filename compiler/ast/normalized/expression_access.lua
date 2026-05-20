@@ -1,6 +1,6 @@
-local NormExpression = require("compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("compiler.ast.normalized.module")
-local TyAccess = require("compiler.ast.typed.expression_access").TyAccess
+local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
+local TyAccess = require("lunar.compiler.ast.typed.expression_access").TyAccess
 
 ---@class NAccess : NormExpression
 ---@field kind "NAccess"

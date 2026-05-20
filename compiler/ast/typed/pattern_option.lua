@@ -1,9 +1,9 @@
-local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
-local newEquation = require("compiler.ast.typed.equation").newEquation
-local TyFunc = require("compiler.ast.typed.type_func").TyFunc
-local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
-local builtins = require("compiler.common.builtins")
-local bytecode = require("compiler.bytecode.op")
+local TypedPattern = require("lunar.compiler.ast.typed.pattern").TypedPattern
+local newEquation = require("lunar.compiler.ast.typed.equation").newEquation
+local TyFunc = require("lunar.compiler.ast.typed.type_func").TyFunc
+local SimpleConstructor = require("lunar.compiler.ast.typed.simple_pattern").SimpleConstructor
+local builtins = require("lunar.compiler.common.builtins")
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class TyPOption : TypedPattern
 ---@field kind "TyPOption"

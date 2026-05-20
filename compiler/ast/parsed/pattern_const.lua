@@ -1,5 +1,5 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPConst = require("compiler.ast.normalized.pattern_const").NPConst
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPConst = require("lunar.compiler.ast.normalized.pattern_const").NPConst
 
 ---@class PConst : Pattern
 ---@field kind "PConst"

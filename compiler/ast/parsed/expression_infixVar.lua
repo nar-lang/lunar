@@ -1,6 +1,6 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
-local utils = require("compiler.ast.parsed.utils")
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NGlobal = require("lunar.compiler.ast.normalized.expression_global").NGlobal
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class InfixVar : Expression
 ---@field kind "InfixVar"

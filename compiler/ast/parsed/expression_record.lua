@@ -17,9 +17,9 @@ function RecordField.new(location, name, value)
     }, RecordField)
 end
 
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NRecord = require("compiler.ast.normalized.expression_record").NRecord
-local NRecordField = require("compiler.ast.normalized.expression_record").NRecordField
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NRecord = require("lunar.compiler.ast.normalized.expression_record").NRecord
+local NRecordField = require("lunar.compiler.ast.normalized.expression_record").NRecordField
 
 ---@class Record : Expression
 ---@field kind "Record"

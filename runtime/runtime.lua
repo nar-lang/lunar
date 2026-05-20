@@ -10,9 +10,9 @@
 ---    and caught by a single outer `pcall` here. `Runtime:fail(msg)` still
 ---    works for natives that want to abort cooperatively.
 
-local Object     = require("runtime.object")
-local Execute    = require("runtime.execute")
-local Errors     = require("runtime.errors")
+local Object     = require("lunar.runtime.object")
+local Execute    = require("lunar.runtime.execute")
+local Errors     = require("lunar.runtime.errors")
 
 ---@class Runtime
 ---@field program RtBytecode

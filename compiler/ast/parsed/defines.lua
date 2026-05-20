@@ -1,4 +1,4 @@
-local treePrint = require("compiler.ast.parsed.tree_print")
+local treePrint = require("lunar.compiler.ast.parsed.tree_print")
 ---@alias NamedTypeMap table<FullIdentifier, NormType>
 
 ---@class Statement

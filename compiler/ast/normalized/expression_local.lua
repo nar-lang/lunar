@@ -1,6 +1,6 @@
-local NormExpression = require("compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("compiler.ast.normalized.module")
-local TyLocal = require("compiler.ast.typed.expression_local").TyLocal
+local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
+local TyLocal = require("lunar.compiler.ast.typed.expression_local").TyLocal
 
 ---A reference to a pattern-bound local. `predecessor` is the parsed-side node
 ---that originated this local; it is used by lambda lifting to redirect its

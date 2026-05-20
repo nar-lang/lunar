@@ -1,7 +1,7 @@
-local newTUnbound = require("compiler.ast.typed.type_unbound").newTUnbound
-local equationMod = require("compiler.ast.typed.equation")
+local newTUnbound = require("lunar.compiler.ast.typed.type_unbound").newTUnbound
+local equationMod = require("lunar.compiler.ast.typed.equation")
 local appendUsefulEquations = equationMod.appendUsefulEquations
-local builtins = require("compiler.common.builtins")
+local builtins = require("lunar.compiler.common.builtins")
 
 local CONSTRAINT_NONE = ""
 local CONSTRAINT_NUMBER = "number"

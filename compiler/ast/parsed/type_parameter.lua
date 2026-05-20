@@ -1,5 +1,5 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTParameter = require("compiler.ast.normalized.type_parameter").NTParameter
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTParameter = require("lunar.compiler.ast.normalized.type_parameter").NTParameter
 
 ---@class TParameter : Type
 ---@field kind "TParameter"

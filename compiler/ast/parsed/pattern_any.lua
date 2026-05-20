@@ -1,5 +1,5 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPAny = require("compiler.ast.normalized.pattern_any").NPAny
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPAny = require("lunar.compiler.ast.normalized.pattern_any").NPAny
 
 ---@class PAny : Pattern
 ---@field kind "PAny"

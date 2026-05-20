@@ -21,11 +21,11 @@
 -- Module roots are resolved relative to the workspace's `lunar/` folder
 -- (which must be on package.path).
 
-local Parser = require("compiler.parser")
-local NormalizedTreePrint = require("compiler.ast.normalized.tree_print")
-local TypedTreePrint = require("compiler.ast.typed.tree_print")
-local BinaryMod = require("compiler.bytecode.binary")
-local BinaryHashMod = require("compiler.bytecode.binary_hash")
+local Parser = require("lunar.compiler.parser")
+local NormalizedTreePrint = require("lunar.compiler.ast.normalized.tree_print")
+local TypedTreePrint = require("lunar.compiler.ast.typed.tree_print")
+local BinaryMod = require("lunar.compiler.bytecode.binary")
+local BinaryHashMod = require("lunar.compiler.bytecode.binary_hash")
 
 ---@param dir string
 ---@return string[]

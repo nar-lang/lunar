@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NConst = require("compiler.ast.normalized.expression_const").NConst
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NConst = require("lunar.compiler.ast.normalized.expression_const").NConst
 
 ---@class Const : Expression
 ---@field kind "Const"

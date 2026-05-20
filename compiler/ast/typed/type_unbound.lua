@@ -1,4 +1,4 @@
-local TypedType = require("compiler.ast.typed.type").TypedType
+local TypedType = require("lunar.compiler.ast.typed.type").TypedType
 
 ---@class TUnbound : TypedType
 ---@field kind "TUnbound"

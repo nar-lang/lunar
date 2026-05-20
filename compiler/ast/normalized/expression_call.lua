@@ -1,6 +1,6 @@
-local NormExpression = require("compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("compiler.ast.normalized.module")
-local TyCall = require("compiler.ast.typed.expression_call").TyCall
+local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
+local TyCall = require("lunar.compiler.ast.typed.expression_call").TyCall
 
 ---@class NCall : NormExpression
 ---@field kind "NCall"

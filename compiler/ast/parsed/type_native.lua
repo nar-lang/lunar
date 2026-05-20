@@ -1,5 +1,5 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTNative = require("compiler.ast.normalized.type_native").NTNative
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTNative = require("lunar.compiler.ast.normalized.type_native").NTNative
 
 ---@class TNative : Type
 ---@field kind "TNative"

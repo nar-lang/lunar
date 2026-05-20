@@ -17,10 +17,10 @@ function BinOpItem.newFunc(infix)
     return setmetatable({ infix = infix }, BinOpItem)
 end
 
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NApply = require("compiler.ast.normalized.expression_apply").NApply
-local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
-local utils = require("compiler.ast.parsed.utils")
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NApply = require("lunar.compiler.ast.normalized.expression_apply").NApply
+local NGlobal = require("lunar.compiler.ast.normalized.expression_global").NGlobal
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class BinOp : Expression
 ---@field kind "BinOp"

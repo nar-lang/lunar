@@ -1,7 +1,7 @@
-local NormStatement = require("compiler.ast.normalized.defines").NormStatement
+local NormStatement = require("lunar.compiler.ast.normalized.defines").NormStatement
 -- Pull NormModule into scope so LuaLS can resolve ---@param m NormModule
 -- annotations on subclasses. Suppressed at runtime via the underscore var.
-local _NormModuleMod = require("compiler.ast.normalized.module")
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 
 ---@class NormExpression : NormStatement
 ---@field kind string

@@ -18,9 +18,9 @@
 ---Naming: ops are array-style tables, indexed only as `op.k`, `op.s`, etc.
 ---No hidden behavior; direct field reads only.
 
-local Op           = require("compiler.bytecode.op")
-local constHashMod = require("compiler.bytecode.const_hash")
-local Object       = require("runtime.object")
+local Op           = require("lunar.compiler.bytecode.op")
+local constHashMod = require("lunar.compiler.bytecode.const_hash")
+local Object       = require("lunar.runtime.object")
 local PackedInt    = constHashMod.PackedInt
 local PackedFloat  = constHashMod.PackedFloat
 local KIND_FLOAT   = constHashMod.KIND_FLOAT

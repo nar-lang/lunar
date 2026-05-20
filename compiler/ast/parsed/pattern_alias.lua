@@ -1,6 +1,6 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPAlias = require("compiler.ast.normalized.pattern_alias").NPAlias
-local joinErrors = require("compiler.ast.parsed.defines").joinErrors
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPAlias = require("lunar.compiler.ast.normalized.pattern_alias").NPAlias
+local joinErrors = require("lunar.compiler.ast.parsed.defines").joinErrors
 
 ---@class PAlias : Pattern
 ---@field kind "PAlias"

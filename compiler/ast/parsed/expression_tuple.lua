@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NTuple = require("compiler.ast.normalized.expression_tuple").NTuple
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NTuple = require("lunar.compiler.ast.normalized.expression_tuple").NTuple
 
 ---@class Tuple : Expression
 ---@field kind "Tuple"

@@ -1,5 +1,5 @@
-local NormType = require("compiler.ast.normalized.type").NormType
-local TyFunc = require("compiler.ast.typed.type_func").TyFunc
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
+local TyFunc = require("lunar.compiler.ast.typed.type_func").TyFunc
 
 ---@class NTFunc : NormType
 ---@field kind "NTFunc"

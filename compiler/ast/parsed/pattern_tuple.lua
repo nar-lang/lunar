@@ -1,6 +1,6 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPTuple = require("compiler.ast.normalized.pattern_tuple").NPTuple
-local joinErrorList = require("compiler.ast.parsed.defines").joinErrorList
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPTuple = require("lunar.compiler.ast.normalized.pattern_tuple").NPTuple
+local joinErrorList = require("lunar.compiler.ast.parsed.defines").joinErrorList
 
 ---@class PTuple : Pattern
 ---@field kind "PTuple"

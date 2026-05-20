@@ -1,4 +1,4 @@
-local treePrint = require("compiler.ast.typed.tree_print")
+local treePrint = require("lunar.compiler.ast.typed.tree_print")
 ---@alias TypedLocalTypesMap table<Identifier, TypedType>
 
 ---@class TypedStatement

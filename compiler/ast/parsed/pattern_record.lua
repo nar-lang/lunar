@@ -14,10 +14,10 @@ function PRecordField.new(location, name)
     }, PRecordField)
 end
 
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPRecord = require("compiler.ast.normalized.pattern_record").NPRecord
-local NPRecordField = require("compiler.ast.normalized.pattern_record").NPRecordField
-local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPRecord = require("lunar.compiler.ast.normalized.pattern_record").NPRecord
+local NPRecordField = require("lunar.compiler.ast.normalized.pattern_record").NPRecordField
+local NPNamed = require("lunar.compiler.ast.normalized.pattern_named").NPNamed
 
 ---@class PRecord : Pattern
 ---@field kind "PRecord"

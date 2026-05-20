@@ -1,6 +1,6 @@
-local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
-local utils = require("compiler.ast.normalized.utils")
-local recordMod = require("compiler.ast.typed.pattern_record")
+local NormPattern = require("lunar.compiler.ast.normalized.pattern").NormPattern
+local utils = require("lunar.compiler.ast.normalized.utils")
+local recordMod = require("lunar.compiler.ast.typed.pattern_record")
 
 ---@class NPRecordField
 ---@field location Location

@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NAccess = require("compiler.ast.normalized.expression_access").NAccess
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NAccess = require("lunar.compiler.ast.normalized.expression_access").NAccess
 
 ---@class Access : Expression
 ---@field kind "Access"

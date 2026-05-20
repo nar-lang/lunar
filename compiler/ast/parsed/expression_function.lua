@@ -1,7 +1,7 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NFunction = require("compiler.ast.normalized.expression_function").NFunction
-local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
-local cloneMap = require("compiler.ast.parsed.utils").cloneMap
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NFunction = require("lunar.compiler.ast.normalized.expression_function").NFunction
+local NPNamed = require("lunar.compiler.ast.normalized.pattern_named").NPNamed
+local cloneMap = require("lunar.compiler.ast.parsed.utils").cloneMap
 
 ---@class Function : Expression
 ---@field kind "Function"

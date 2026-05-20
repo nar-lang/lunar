@@ -1,7 +1,7 @@
-local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
-local newEquation = require("compiler.ast.typed.equation").newEquation
-local SimpleAnything = require("compiler.ast.typed.simple_pattern").SimpleAnything
-local bytecode = require("compiler.bytecode.op")
+local TypedPattern = require("lunar.compiler.ast.typed.pattern").TypedPattern
+local newEquation = require("lunar.compiler.ast.typed.equation").newEquation
+local SimpleAnything = require("lunar.compiler.ast.typed.simple_pattern").SimpleAnything
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class TyPAny : TypedPattern
 ---@field kind "TyPAny"

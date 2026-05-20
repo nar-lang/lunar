@@ -1,9 +1,9 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NLocal = require("compiler.ast.normalized.expression_local").NLocal
-local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
-local Location = require("compiler.ast.location").Location
-local utils = require("compiler.ast.parsed.utils")
-local Access = require("compiler.ast.parsed.expression_access").Access
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NLocal = require("lunar.compiler.ast.normalized.expression_local").NLocal
+local NGlobal = require("lunar.compiler.ast.normalized.expression_global").NGlobal
+local Location = require("lunar.compiler.ast.location").Location
+local utils = require("lunar.compiler.ast.parsed.utils")
+local Access = require("lunar.compiler.ast.parsed.expression_access").Access
 
 ---@class Var : Expression
 ---@field kind "Var"

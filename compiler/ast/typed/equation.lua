@@ -25,7 +25,7 @@ local function newEquationBestLoc(left, right, enclosing)
         stmt = right
     else
         -- Inline require breaks a top-level cycle: equation <-> definition.
-        local TypedDefinition = require("compiler.ast.typed.definition").TypedDefinition
+        local TypedDefinition = require("lunar.compiler.ast.typed.definition").TypedDefinition
         stmt = TypedDefinition.new(enclosing, 0, false, "---", enclosing)
     end
     return setmetatable({

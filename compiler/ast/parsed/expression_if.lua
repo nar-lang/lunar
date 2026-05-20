@@ -1,10 +1,10 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NSelect = require("compiler.ast.normalized.expression_select").NSelect
-local NSelectCase = require("compiler.ast.normalized.expression_select").NSelectCase
-local NTData = require("compiler.ast.normalized.type_data").NTData
-local NDataOption = require("compiler.ast.normalized.type_data").NDataOption
-local NPOption = require("compiler.ast.normalized.pattern_option").NPOption
-local builtins = require("compiler.common.builtins")
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NSelect = require("lunar.compiler.ast.normalized.expression_select").NSelect
+local NSelectCase = require("lunar.compiler.ast.normalized.expression_select").NSelectCase
+local NTData = require("lunar.compiler.ast.normalized.type_data").NTData
+local NDataOption = require("lunar.compiler.ast.normalized.type_data").NDataOption
+local NPOption = require("lunar.compiler.ast.normalized.pattern_option").NPOption
+local builtins = require("lunar.compiler.common.builtins")
 
 ---@class If : Expression
 ---@field kind "If"

@@ -1,5 +1,5 @@
-local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
-local bytecode = require("compiler.bytecode.op")
+local TypedExpression = require("lunar.compiler.ast.typed.expression").TypedExpression
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class TyCall : TypedExpression
 ---@field kind "TyCall"

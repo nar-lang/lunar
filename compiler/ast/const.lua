@@ -3,7 +3,7 @@
 ---@field equals fun(self: ConstValue, other: ConstValue): boolean
 ---@field appendBytecode fun(self: ConstValue, stackKind: StackKind, loc: Location, ops: integer[], locations: integer[][], binary: Binary, hash: BinaryHash): integer[], integer[][]
 
-local bytecode = require("compiler.bytecode.op")
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class CChar : ConstValue
 ---@field kind "CChar"

@@ -15,10 +15,10 @@
 ---    (`rt.globalCache[fnTable] = result`), mirroring nar-runtime-js.
 ---  * Object accessors (`obj.value`, `obj.next`, …) are inlined directly.
 
-local Op              = require("compiler.bytecode.op")
-local Object          = require("runtime.object")
-local OK              = require("runtime.object_kind")
-local Errors          = require("runtime.errors")
+local Op              = require("lunar.compiler.bytecode.op")
+local Object          = require("lunar.runtime.object")
+local OK              = require("lunar.runtime.object_kind")
+local Errors          = require("lunar.runtime.errors")
 
 local Execute         = {}
 

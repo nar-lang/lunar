@@ -1,4 +1,4 @@
-local Statement = require("compiler.ast.parsed.defines").Statement
+local Statement = require("lunar.compiler.ast.parsed.defines").Statement
 
 ---@class Expression : Statement
 ---@field kind string

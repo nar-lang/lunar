@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NLambda = require("compiler.ast.normalized.expression_lambda").NLambda
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NLambda = require("lunar.compiler.ast.normalized.expression_lambda").NLambda
 
 ---@class Lambda : Expression
 ---@field kind "Lambda"

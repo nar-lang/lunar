@@ -1,6 +1,6 @@
-local Pattern = require("compiler.ast.parsed.pattern").Pattern
-local NPOption = require("compiler.ast.normalized.pattern_option").NPOption
-local joinErrorList = require("compiler.ast.parsed.defines").joinErrorList
+local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
+local NPOption = require("lunar.compiler.ast.normalized.pattern_option").NPOption
+local joinErrorList = require("lunar.compiler.ast.parsed.defines").joinErrorList
 
 ---@class POption : Pattern
 ---@field kind "POption"

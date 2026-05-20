@@ -1,4 +1,4 @@
-local NormType = require("compiler.ast.normalized.type").NormType
+local NormType = require("lunar.compiler.ast.normalized.type").NormType
 
 ---Placeholder for a recursive named type during the parsed→normalized
 ---lowering. Looks up a real type from the placeholder map by name.

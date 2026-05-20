@@ -1,7 +1,7 @@
 ---Binary blob writer/reader, mirrors nar-compiler/bytecode/binary.go byte-for-byte.
 
-local op_mod = require("compiler.bytecode.op")
-local const_hash = require("compiler.bytecode.const_hash")
+local op_mod = require("lunar.compiler.bytecode.op")
+local const_hash = require("lunar.compiler.bytecode.const_hash")
 
 local VERSION = 100
 -- Same magic Go uses: 'N'<<8 | 'A'<<16 | 'R'<<24 == 0x52_41_4E_00.

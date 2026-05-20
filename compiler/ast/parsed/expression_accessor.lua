@@ -1,8 +1,8 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local Lambda = require("compiler.ast.parsed.expression_lambda").Lambda
-local PNamed = require("compiler.ast.parsed.pattern_named").PNamed
-local Var = require("compiler.ast.parsed.expression_var").Var
-local Access = require("compiler.ast.parsed.expression_access").Access
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local Lambda = require("lunar.compiler.ast.parsed.expression_lambda").Lambda
+local PNamed = require("lunar.compiler.ast.parsed.pattern_named").PNamed
+local Var = require("lunar.compiler.ast.parsed.expression_var").Var
+local Access = require("lunar.compiler.ast.parsed.expression_access").Access
 
 ---@class Accessor : Expression
 ---@field kind "Accessor"

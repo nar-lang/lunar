@@ -1,5 +1,5 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTUnit = require("compiler.ast.normalized.type_unit").NTUnit
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTUnit = require("lunar.compiler.ast.normalized.type_unit").NTUnit
 
 ---@class TUnit : Type
 ---@field kind "TUnit"

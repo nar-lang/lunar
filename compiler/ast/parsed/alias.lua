@@ -1,6 +1,6 @@
-local Statement = require("compiler.ast.parsed.defines").Statement
-local makeFullIdentifier = require("compiler.ast.misc").makeFullIdentifier
-local TNative = require("compiler.ast.parsed.type_native").TNative
+local Statement = require("lunar.compiler.ast.parsed.defines").Statement
+local makeFullIdentifier = require("lunar.compiler.ast.misc").makeFullIdentifier
+local TNative = require("lunar.compiler.ast.parsed.type_native").TNative
 
 ---@class Alias : Statement
 ---@field kind "Alias"

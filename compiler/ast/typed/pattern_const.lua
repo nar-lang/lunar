@@ -1,10 +1,10 @@
-local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
-local newEquation = require("compiler.ast.typed.equation").newEquation
-local SimpleLiteral = require("compiler.ast.typed.simple_pattern").SimpleLiteral
-local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
-local TyData = require("compiler.ast.typed.type_data").TyData
-local TyDataOption = require("compiler.ast.typed.type_data").TyDataOption
-local bytecode = require("compiler.bytecode.op")
+local TypedPattern = require("lunar.compiler.ast.typed.pattern").TypedPattern
+local newEquation = require("lunar.compiler.ast.typed.equation").newEquation
+local SimpleLiteral = require("lunar.compiler.ast.typed.simple_pattern").SimpleLiteral
+local SimpleConstructor = require("lunar.compiler.ast.typed.simple_pattern").SimpleConstructor
+local TyData = require("lunar.compiler.ast.typed.type_data").TyData
+local TyDataOption = require("lunar.compiler.ast.typed.type_data").TyDataOption
+local bytecode = require("lunar.compiler.bytecode.op")
 
 ---@class TyPConst : TypedPattern
 ---@field kind "TyPConst"

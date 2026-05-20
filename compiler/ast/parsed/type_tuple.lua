@@ -1,5 +1,5 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTTuple = require("compiler.ast.normalized.type_tuple").NTTuple
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTTuple = require("lunar.compiler.ast.normalized.type_tuple").NTTuple
 
 ---@class TTuple : Type
 ---@field kind "TTuple"

@@ -17,9 +17,9 @@
 ---Stages skip work that is already present in the output map, so callers
 ---can run them incrementally.
 
-local Parser        = require("compiler.parser")
-local BinaryMod     = require("compiler.bytecode.binary")
-local BinaryHashMod = require("compiler.bytecode.binary_hash")
+local Parser        = require("lunar.compiler.parser")
+local BinaryMod     = require("lunar.compiler.bytecode.binary")
+local BinaryHashMod = require("lunar.compiler.bytecode.binary_hash")
 
 ---@class Compiler
 local Compiler      = {}

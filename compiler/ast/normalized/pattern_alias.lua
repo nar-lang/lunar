@@ -1,6 +1,6 @@
-local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
-local utils = require("compiler.ast.normalized.utils")
-local TyPAlias = require("compiler.ast.typed.pattern_alias").TyPAlias
+local NormPattern = require("lunar.compiler.ast.normalized.pattern").NormPattern
+local utils = require("lunar.compiler.ast.normalized.utils")
+local TyPAlias = require("lunar.compiler.ast.typed.pattern_alias").TyPAlias
 
 ---@class NPAlias : NormPattern
 ---@field kind "NPAlias"

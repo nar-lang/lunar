@@ -1,6 +1,6 @@
-local NormExpression = require("compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("compiler.ast.normalized.module")
-local TyTuple = require("compiler.ast.typed.expression_tuple").TyTuple
+local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
+local TyTuple = require("lunar.compiler.ast.typed.expression_tuple").TyTuple
 
 ---@class NTuple : NormExpression
 ---@field kind "NTuple"

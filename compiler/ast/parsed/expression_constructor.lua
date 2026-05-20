@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NConstructor = require("compiler.ast.normalized.expression_constructor").NConstructor
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NConstructor = require("lunar.compiler.ast.normalized.expression_constructor").NConstructor
 
 ---@class Constructor : Expression
 ---@field kind "Constructor"

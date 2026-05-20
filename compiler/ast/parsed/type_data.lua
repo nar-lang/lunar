@@ -1,7 +1,7 @@
-local Type = require("compiler.ast.parsed.type").Type
-local NTData = require("compiler.ast.normalized.type_data").NTData
-local NDataOption = require("compiler.ast.normalized.type_data").NDataOption
-local NTPlaceholder = require("compiler.ast.normalized.type_placeholder").NTPlaceholder
+local Type = require("lunar.compiler.ast.parsed.type").Type
+local NTData = require("lunar.compiler.ast.normalized.type_data").NTData
+local NDataOption = require("lunar.compiler.ast.normalized.type_data").NDataOption
+local NTPlaceholder = require("lunar.compiler.ast.normalized.type_placeholder").NTPlaceholder
 
 ---@class DataOption
 ---@field name Identifier

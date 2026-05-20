@@ -17,10 +17,10 @@ function SelectCase.new(location, pattern, body)
     }, SelectCase)
 end
 
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NSelect = require("compiler.ast.normalized.expression_select").NSelect
-local NSelectCase = require("compiler.ast.normalized.expression_select").NSelectCase
-local cloneMap = require("compiler.ast.parsed.utils").cloneMap
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NSelect = require("lunar.compiler.ast.normalized.expression_select").NSelect
+local NSelectCase = require("lunar.compiler.ast.normalized.expression_select").NSelectCase
+local cloneMap = require("lunar.compiler.ast.parsed.utils").cloneMap
 
 ---@class Select : Expression
 ---@field kind "Select"

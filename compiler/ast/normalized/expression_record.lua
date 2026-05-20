@@ -1,6 +1,6 @@
-local NormExpression = require("compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("compiler.ast.normalized.module")
-local recordMod = require("compiler.ast.typed.expression_record")
+local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
+local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
+local recordMod = require("lunar.compiler.ast.typed.expression_record")
 
 ---@class NRecordField
 ---@field location Location

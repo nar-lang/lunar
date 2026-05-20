@@ -1,7 +1,7 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NApply = require("compiler.ast.normalized.expression_apply").NApply
-local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
-local builtins = require("compiler.common.builtins")
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NApply = require("lunar.compiler.ast.normalized.expression_apply").NApply
+local NGlobal = require("lunar.compiler.ast.normalized.expression_global").NGlobal
+local builtins = require("lunar.compiler.common.builtins")
 
 ---@class Negate : Expression
 ---@field kind "Negate"

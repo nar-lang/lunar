@@ -1,6 +1,6 @@
-local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
-local utils = require("compiler.ast.normalized.utils")
-local TyPCons = require("compiler.ast.typed.pattern_cons").TyPCons
+local NormPattern = require("lunar.compiler.ast.normalized.pattern").NormPattern
+local utils = require("lunar.compiler.ast.normalized.utils")
+local TyPCons = require("lunar.compiler.ast.typed.pattern_cons").TyPCons
 
 ---@class NPCons : NormPattern
 ---@field kind "NPCons"

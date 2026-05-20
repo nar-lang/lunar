@@ -1,5 +1,5 @@
-local Expression = require("compiler.ast.parsed.expression").Expression
-local NList = require("compiler.ast.normalized.expression_list").NList
+local Expression = require("lunar.compiler.ast.parsed.expression").Expression
+local NList = require("lunar.compiler.ast.normalized.expression_list").NList
 
 ---@class List : Expression
 ---@field kind "List"
