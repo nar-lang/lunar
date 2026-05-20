@@ -1,5 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local selectMod = require("lunar.compiler.ast.typed.expression_select")
 
 ---@class NSelectCase

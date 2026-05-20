@@ -1,5 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local utils = require("lunar.compiler.ast.normalized.utils")
 local TyConstructor = require("lunar.compiler.ast.typed.expression_constructor").TyConstructor
 local makeFullIdentifier = require("lunar.compiler.common.builtins").makeFullIdentifier
@@ -78,7 +77,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NConstructor:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-
     local ctorDef, err = utils.getAnnotatedGlobal(
         self.moduleName, self.optionName, modules, typedModules, stack, self.location)
     if err ~= nil then

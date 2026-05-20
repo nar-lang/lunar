@@ -1,6 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
-local _NormDefinitionMod = require("lunar.compiler.ast.normalized.definition")
 local utils = require("lunar.compiler.ast.normalized.utils")
 local NPNamed = require("lunar.compiler.ast.normalized.pattern_named").NPNamed
 local NLocal = require("lunar.compiler.ast.normalized.expression_local").NLocal
@@ -66,7 +64,6 @@ end
 ---@param locals NormPatternMap
 ---@return NormExpression
 function NFunction:flattenLambdas(parentName, m, locals)
-
     local lambdaDef, usedLocals, replacement = m:extractLambda(
         self.location, parentName, self.params, self.body, locals, self.name, self.location)
     ---@cast lambdaDef NormDefinition

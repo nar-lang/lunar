@@ -1,5 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local utils = require("lunar.compiler.ast.normalized.utils")
 local recordMod = require("lunar.compiler.ast.typed.expression_record")
 local TyUpdate = require("lunar.compiler.ast.typed.expression_update").TyUpdate

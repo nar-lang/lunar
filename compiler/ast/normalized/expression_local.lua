@@ -1,5 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local TyLocal = require("lunar.compiler.ast.typed.expression_local").TyLocal
 
 ---A reference to a pattern-bound local. `predecessor` is the parsed-side node

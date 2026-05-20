@@ -2,9 +2,10 @@ local Counters = require("lunar.compiler.ast.normalized.defines").Counters
 local utils = require("lunar.compiler.ast.normalized.utils")
 local NPNamed = require("lunar.compiler.ast.normalized.pattern_named").NPNamed
 local TypedModule = require("lunar.compiler.ast.typed.module").TypedModule
--- NormDefinition is required lazily inside extractLambda to avoid a
--- top-level require cycle (definition.lua requires this module so that
--- LuaLS can resolve `---@param o NormModule` on NormDefinition methods).
+local NormDefinition = require("lunar.compiler.ast.normalized.definition").NormDefinition
+local NGlobal = require("lunar.compiler.ast.normalized.expression_global").NGlobal
+local NLocal = require("lunar.compiler.ast.normalized.expression_local").NLocal
+local NApply = require("lunar.compiler.ast.normalized.expression_apply").NApply
 
 ---@class NormModule
 ---@field location Location
@@ -65,13 +66,6 @@ end
 ---@return Identifier[] usedLocals
 ---@return NormExpression replacement
 function NormModule:extractLambda(loc, parentName, params, body, locals, name, nameLocation)
-    -- Inline requires below break a top-level cycle:
-    -- module <-> {definition, expression_global, expression_local, expression_apply}.
-    local NormDefinition = require("lunar.compiler.ast.normalized.definition").NormDefinition
-    local NGlobal = require("lunar.compiler.ast.normalized.expression_global").NGlobal
-    local NLocal = require("lunar.compiler.ast.normalized.expression_local").NLocal
-    local NApply = require("lunar.compiler.ast.normalized.expression_apply").NApply
-
     Counters.lastLambdaId = Counters.lastLambdaId + 1
     local lambdaName = string.format("_lmbd_%s_%d_%s", parentName, Counters.lastLambdaId, name)
     local paramNames = utils.extractParamNames(params)

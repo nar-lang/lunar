@@ -1,8 +1,5 @@
 local NormStatement = require("lunar.compiler.ast.normalized.defines").NormStatement
 local Counters = require("lunar.compiler.ast.normalized.defines").Counters
--- Bring NormModule into LuaLS scope (safe: module.lua no longer requires
--- this file at top level so there is no load-time cycle).
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local TypedDefinition = require("lunar.compiler.ast.typed.definition").TypedDefinition
 local utils = require("lunar.compiler.ast.normalized.utils")
 

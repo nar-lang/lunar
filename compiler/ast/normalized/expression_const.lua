@@ -1,5 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local TyConst = require("lunar.compiler.ast.typed.expression_const").TyConst
 
 ---@class NConst : NormExpression

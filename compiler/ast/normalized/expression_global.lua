@@ -1,5 +1,4 @@
 local NormExpression = require("lunar.compiler.ast.normalized.expression").NormExpression
-local _NormModuleMod = require("lunar.compiler.ast.normalized.module")
 local utils = require("lunar.compiler.ast.normalized.utils")
 local TyGlobal = require("lunar.compiler.ast.typed.expression_global").TyGlobal
 
@@ -10,7 +9,7 @@ local TyGlobal = require("lunar.compiler.ast.typed.expression_global").TyGlobal
 ---@field definitionName Identifier
 local NGlobal = setmetatable({}, { __index = NormExpression })
 NGlobal.__index = NGlobal
- 
+
 ---@param location Location
 ---@param moduleName QualifiedIdentifier
 ---@param definitionName Identifier
