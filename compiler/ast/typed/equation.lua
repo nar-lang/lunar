@@ -1,3 +1,5 @@
+local SyntheticStmt = require("lunar.compiler.ast.typed.defines").SyntheticStmt
+
 ---Type equation: assertion that two types should unify.
 
 ---@class Equation
@@ -8,8 +10,8 @@ local Equation = {}
 Equation.__index = Equation
 
 ---Pick the most specific statement to attach the equation to: prefer the
----one whose location is contained by `enclosing`. Fallback to creating a
----synthetic "---" definition that owns `enclosing`.
+---side whose location is contained by `enclosing`. Fallback to a
+---`SyntheticStmt` that carries `enclosing` (no real AST node owns it).
 ---@param left TypedType
 ---@param right TypedType
 ---@param enclosing Location
@@ -24,9 +26,7 @@ local function newEquationBestLoc(left, right, enclosing)
     elseif enclosing and enclosing.contains and enclosing:contains(rightLoc) then
         stmt = right
     else
-        -- Inline require breaks a top-level cycle: equation <-> definition.
-        local TypedDefinition = require("lunar.compiler.ast.typed.definition").TypedDefinition
-        stmt = TypedDefinition.new(enclosing, 0, false, "---", enclosing)
+        stmt = SyntheticStmt.new(enclosing)
     end
     return setmetatable({
         left = left,
