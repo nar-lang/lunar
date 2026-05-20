@@ -1,5 +1,6 @@
 local Statement = require("compiler.ast.parsed.defines").Statement
 local makeFullIdentifier = require("compiler.ast.misc").makeFullIdentifier
+local TNative = require("compiler.ast.parsed.type_native").TNative
 
 ---@class Alias : Statement
 ---@field kind "Alias"
@@ -45,7 +46,6 @@ end
 function Alias:inferType(moduleName, args)
     local id = makeFullIdentifier(moduleName, self.name)
     if self.type == nil then
-        local TNative = require("compiler.ast.parsed.type_native").TNative
         return TNative.new(self.location, id, args, self.nameLocation), id, nil
     end
     if #self.params ~= #args then

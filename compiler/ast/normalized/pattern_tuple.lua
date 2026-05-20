@@ -1,4 +1,6 @@
 local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
+local utils = require("compiler.ast.normalized.utils")
+local TyPTuple = require("compiler.ast.typed.pattern_tuple").TyPTuple
 
 ---@class NPTuple : NormPattern
 ---@field kind "NPTuple"
@@ -53,8 +55,6 @@ end
 ---@return TypedPattern|nil p
 ---@return string|nil err
 function NPTuple:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyPTuple = require("compiler.ast.typed.pattern_tuple").TyPTuple
     ---@type TypedPattern[]
     local items = {}
     for i, x in ipairs(self.items) do

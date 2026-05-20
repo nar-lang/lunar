@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyApply = require("compiler.ast.typed.expression_apply").TyApply
 
 ---@class NApply : NormExpression
 ---@field kind "NApply"
@@ -75,7 +76,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NApply:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyApply = require("compiler.ast.typed.expression_apply").TyApply
     local fn, err = self.func:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
     if err ~= nil then
         return nil, err

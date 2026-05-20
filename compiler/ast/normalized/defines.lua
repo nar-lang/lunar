@@ -1,3 +1,4 @@
+local treePrint = require("compiler.ast.normalized.tree_print")
 ---@alias NormPatternMap table<Identifier, table>
 ---@alias TypeParamsMap table<Identifier, TypedType>
 ---@alias PlaceholderMap table<FullIdentifier, TypedType>
@@ -26,7 +27,6 @@ function NormStatement:setSuccessor(typed)
 ---@param offset integer
 ---@return string
 function NormStatement:stringTree(offset)
-    local treePrint = require("compiler.ast.normalized.tree_print")
     return treePrint.stringTree(self, offset or 0)
 end
 

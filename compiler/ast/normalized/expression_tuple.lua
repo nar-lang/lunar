@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyTuple = require("compiler.ast.typed.expression_tuple").TyTuple
 
 ---@class NTuple : NormExpression
 ---@field kind "NTuple"
@@ -66,7 +67,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NTuple:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyTuple = require("compiler.ast.typed.expression_tuple").TyTuple
     ---@type TypedExpression[]
     local items = {}
     for i, x in ipairs(self.items) do

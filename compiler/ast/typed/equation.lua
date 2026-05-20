@@ -24,6 +24,7 @@ local function newEquationBestLoc(left, right, enclosing)
     elseif enclosing and enclosing.contains and enclosing:contains(rightLoc) then
         stmt = right
     else
+        -- Inline require breaks a top-level cycle: equation <-> definition.
         local TypedDefinition = require("compiler.ast.typed.definition").TypedDefinition
         stmt = TypedDefinition.new(enclosing, 0, false, "---", enclosing)
     end

@@ -1,4 +1,5 @@
 local Statement = require("compiler.ast.parsed.defines").Statement
+local TData = require("compiler.ast.parsed.type_data").TData
 
 ---@class Import : Statement
 ---@field kind "Import"
@@ -53,7 +54,6 @@ end
 ---@param modules table<QualifiedIdentifier, Module>
 ---@return string|nil error
 function Import:unwrap(modules)
-    local TData = require("compiler.ast.parsed.type_data").TData
 
     local m = modules[self.moduleIdentifier]
     if m == nil then

@@ -1,4 +1,6 @@
 local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
+local utils = require("compiler.ast.normalized.utils")
+local recordMod = require("compiler.ast.typed.pattern_record")
 
 ---@class NPRecordField
 ---@field location Location
@@ -62,8 +64,6 @@ end
 ---@return TypedPattern|nil p
 ---@return string|nil err
 function NPRecord:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local recordMod = require("compiler.ast.typed.pattern_record")
     local TyPRecord = recordMod.TyPRecord
     local TyPRecordField = recordMod.TyPRecordField
     ---@type table[]

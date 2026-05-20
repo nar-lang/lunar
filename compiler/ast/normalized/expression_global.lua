@@ -1,5 +1,7 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local utils = require("compiler.ast.normalized.utils")
+local TyGlobal = require("compiler.ast.typed.expression_global").TyGlobal
 
 ---@class NGlobal : NormExpression
 ---@field kind "NGlobal"
@@ -55,8 +57,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NGlobal:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyGlobal = require("compiler.ast.typed.expression_global").TyGlobal
     local targetDef, err = utils.getAnnotatedGlobal(
         self.moduleName, self.definitionName, modules, typedModules, stack, self.location)
     if err ~= nil then

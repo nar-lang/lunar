@@ -1,3 +1,5 @@
+local PackedInt = require("compiler.bytecode.const_hash").PackedInt
+local PackedFloat = require("compiler.bytecode.const_hash").PackedFloat
 ---Bytecode op encoder, mirrors nar-compiler/bytecode/op.go byte-for-byte.
 ---
 ---Layout of a single 64-bit op word (little-endian semantics, but stored as a
@@ -189,7 +191,6 @@ end
 ---@param hash BinaryHash
 ---@return integer[], integer[][]
 function Op.appendLoadConstIntValue(v, stack, loc, ops, locations, binary, hash)
-    local PackedInt = require("compiler.bytecode.const_hash").PackedInt
     local idx = hash:hashConst(PackedInt.new(v), binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_LOAD_CONST, stack, Op.CONST_KIND_INT, idx)
     appendLoc(locations, loc)
@@ -205,7 +206,6 @@ end
 ---@param hash BinaryHash
 ---@return integer[], integer[][]
 function Op.appendLoadConstFloatValue(v, stack, loc, ops, locations, binary, hash)
-    local PackedFloat = require("compiler.bytecode.const_hash").PackedFloat
     local idx = hash:hashConst(PackedFloat.new(v), binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_LOAD_CONST, stack, Op.CONST_KIND_FLOAT, idx)
     appendLoc(locations, loc)

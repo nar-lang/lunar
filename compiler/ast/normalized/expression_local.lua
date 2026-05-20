@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyLocal = require("compiler.ast.typed.expression_local").TyLocal
 
 ---A reference to a pattern-bound local. `predecessor` is the parsed-side node
 ---that originated this local; it is used by lambda lifting to redirect its
@@ -75,7 +76,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NLocal:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyLocal = require("compiler.ast.typed.expression_local").TyLocal
     if self.target == nil then
         return nil, string.format("local variable `%s` not resolved", tostring(self.name))
     end

@@ -1,4 +1,6 @@
 local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
+local utils = require("compiler.ast.normalized.utils")
+local TyPOption = require("compiler.ast.typed.pattern_option").TyPOption
 
 ---@class NPOption : NormPattern
 ---@field kind "NPOption"
@@ -59,8 +61,6 @@ end
 ---@return TypedPattern|nil p
 ---@return string|nil err
 function NPOption:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyPOption = require("compiler.ast.typed.pattern_option").TyPOption
     local def, derr = utils.getAnnotatedGlobal(
         self.moduleName, self.definitionName, modules, typedModules, stack, self.location)
     if derr ~= nil then

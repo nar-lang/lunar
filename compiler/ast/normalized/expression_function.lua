@@ -1,6 +1,13 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
 local _NormDefinitionMod = require("compiler.ast.normalized.definition")
+local utils = require("compiler.ast.normalized.utils")
+local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
+local NLocal = require("compiler.ast.normalized.expression_local").NLocal
+local NApply = require("compiler.ast.normalized.expression_apply").NApply
+local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
+local NLet = require("compiler.ast.normalized.expression_let").NLet
+local Counters = require("compiler.ast.normalized.defines").Counters
 
 ---@class NFunction : NormExpression
 ---@field kind "NFunction"
@@ -59,13 +66,6 @@ end
 ---@param locals NormPatternMap
 ---@return NormExpression
 function NFunction:flattenLambdas(parentName, m, locals)
-    local utils = require("compiler.ast.normalized.utils")
-    local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
-    local NLocal = require("compiler.ast.normalized.expression_local").NLocal
-    local NApply = require("compiler.ast.normalized.expression_apply").NApply
-    local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
-    local NLet = require("compiler.ast.normalized.expression_let").NLet
-    local Counters = require("compiler.ast.normalized.defines").Counters
 
     local lambdaDef, usedLocals, replacement = m:extractLambda(
         self.location, parentName, self.params, self.body, locals, self.name, self.location)

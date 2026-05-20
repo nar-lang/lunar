@@ -1,5 +1,14 @@
 local Statement = require("compiler.ast.parsed.defines").Statement
 local makeFullIdentifier = require("compiler.ast.misc").makeFullIdentifier
+local DataOption = require("compiler.ast.parsed.type_data").DataOption
+local Definition = require("compiler.ast.parsed.definition").Definition
+local Constructor = require("compiler.ast.parsed.expression_constructor").Constructor
+local Var = require("compiler.ast.parsed.expression_var").Var
+local PNamed = require("compiler.ast.parsed.pattern_named").PNamed
+local TFunc = require("compiler.ast.parsed.type_func").TFunc
+local TParameter = require("compiler.ast.parsed.type_parameter").TParameter
+local TData = require("compiler.ast.parsed.type_data").TData
+local Alias = require("compiler.ast.parsed.alias").Alias
 
 ---@class DataTypeValue
 ---@field location Location
@@ -62,7 +71,6 @@ end
 ---Build the `DataOption` description that lives inside the resulting `TData` type.
 ---@return DataOption
 function DataTypeOption:dataOption()
-    local DataOption = require("compiler.ast.parsed.type_data").DataOption
     local types = {}
     for i, v in ipairs(self.values) do
         types[i] = v.type
@@ -77,11 +85,6 @@ end
 ---@param hidden boolean
 ---@return Definition
 function DataTypeOption:constructor(moduleName, dataName, dataType, hidden)
-    local Definition = require("compiler.ast.parsed.definition").Definition
-    local Constructor = require("compiler.ast.parsed.expression_constructor").Constructor
-    local Var = require("compiler.ast.parsed.expression_var").Var
-    local PNamed = require("compiler.ast.parsed.pattern_named").PNamed
-    local TFunc = require("compiler.ast.parsed.type_func").TFunc
 
     local type_ = dataType
     if #self.values > 0 then
@@ -153,9 +156,6 @@ end
 ---@return Alias dataAlias
 ---@return Definition[] defs
 function DataType:flatten(moduleName)
-    local TParameter = require("compiler.ast.parsed.type_parameter").TParameter
-    local TData = require("compiler.ast.parsed.type_data").TData
-    local Alias = require("compiler.ast.parsed.alias").Alias
 
     local typeArgs = {}
     for i, p in ipairs(self.params) do

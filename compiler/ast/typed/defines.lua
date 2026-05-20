@@ -1,3 +1,4 @@
+local treePrint = require("compiler.ast.typed.tree_print")
 ---@alias TypedLocalTypesMap table<Identifier, TypedType>
 
 ---@class TypedStatement
@@ -9,7 +10,6 @@ TypedStatement.__index = TypedStatement
 ---@param offset integer
 ---@return string
 function TypedStatement:stringTree(offset)
-    local treePrint = require("compiler.ast.typed.tree_print")
     return treePrint.stringTree(self, offset or 0)
 end
 

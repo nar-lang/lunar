@@ -1,3 +1,4 @@
+local treePrint = require("compiler.ast.parsed.tree_print")
 ---@alias NamedTypeMap table<FullIdentifier, NormType>
 
 ---@class Statement
@@ -17,7 +18,6 @@ end
 ---@param offset integer
 ---@return string
 function Statement:stringTree(offset)
-    local treePrint = require("compiler.ast.parsed.tree_print")
     return treePrint.stringTree(self, offset or 0)
 end
 

@@ -1,6 +1,7 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local bytecode = require("compiler.bytecode.op")
+local utils = require("compiler.ast.typed.utils")
 
 ---@class TySelectCase
 ---@field location Location
@@ -49,7 +50,6 @@ end
 
 ---@return string|nil err
 function TySelect:checkPatterns()
-    local utils = require("compiler.ast.typed.utils")
     local err = self.condition:checkPatterns()
     if err ~= nil then
         return err

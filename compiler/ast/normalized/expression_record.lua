@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local recordMod = require("compiler.ast.typed.expression_record")
 
 ---@class NRecordField
 ---@field location Location
@@ -85,7 +86,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NRecord:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local recordMod = require("compiler.ast.typed.expression_record")
     local TyRecord = recordMod.TyRecord
     local TyRecordField = recordMod.TyRecordField
     ---@type table[]

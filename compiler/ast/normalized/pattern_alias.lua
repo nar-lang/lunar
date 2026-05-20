@@ -1,4 +1,6 @@
 local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
+local utils = require("compiler.ast.normalized.utils")
+local TyPAlias = require("compiler.ast.typed.pattern_alias").TyPAlias
 
 ---@class NPAlias : NormPattern
 ---@field kind "NPAlias"
@@ -53,8 +55,6 @@ end
 ---@return TypedPattern|nil p
 ---@return string|nil err
 function NPAlias:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyPAlias = require("compiler.ast.typed.pattern_alias").TyPAlias
     local nested, err = self.nested:annotate(
         ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
     if err ~= nil then

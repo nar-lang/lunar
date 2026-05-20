@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyConst = require("compiler.ast.typed.expression_const").TyConst
 
 ---@class NConst : NormExpression
 ---@field kind "NConst"
@@ -52,7 +53,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NConst:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyConst = require("compiler.ast.typed.expression_const").TyConst
     return self:setSuccessor(TyConst.new(ctx, self.location, self.value))
 end
 

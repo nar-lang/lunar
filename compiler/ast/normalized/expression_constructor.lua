@@ -1,5 +1,8 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local utils = require("compiler.ast.normalized.utils")
+local TyConstructor = require("compiler.ast.typed.expression_constructor").TyConstructor
+local makeFullIdentifier = require("compiler.common.builtins").makeFullIdentifier
 
 ---@class NConstructor : NormExpression
 ---@field kind "NConstructor"
@@ -75,9 +78,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NConstructor:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyConstructor = require("compiler.ast.typed.expression_constructor").TyConstructor
-    local makeFullIdentifier = require("compiler.common.builtins").makeFullIdentifier
 
     local ctorDef, err = utils.getAnnotatedGlobal(
         self.moduleName, self.optionName, modules, typedModules, stack, self.location)

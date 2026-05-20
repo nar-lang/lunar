@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyLet = require("compiler.ast.typed.expression_let").TyLet
 
 ---@class NLet : NormExpression
 ---@field kind "NLet"
@@ -95,7 +96,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NLet:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyLet = require("compiler.ast.typed.expression_let").TyLet
     local localTypeParams = cloneTypeParams(typeParams)
     local pattern, err = self.pattern:annotate(
         ctx, localTypeParams, modules, typedModules, moduleName, true, stack)

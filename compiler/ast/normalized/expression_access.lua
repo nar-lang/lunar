@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyAccess = require("compiler.ast.typed.expression_access").TyAccess
 
 ---@class NAccess : NormExpression
 ---@field kind "NAccess"
@@ -61,7 +62,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NAccess:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyAccess = require("compiler.ast.typed.expression_access").TyAccess
     local record, err = self.record:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
     if err ~= nil then
         return nil, err

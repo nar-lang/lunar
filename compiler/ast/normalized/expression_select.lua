@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local selectMod = require("compiler.ast.typed.expression_select")
 
 ---@class NSelectCase
 ---@field location Location
@@ -121,7 +122,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NSelect:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local selectMod = require("compiler.ast.typed.expression_select")
     local TySelect = selectMod.TySelect
     local TySelectCase = selectMod.TySelectCase
     local condition, err = self.condition:annotate(

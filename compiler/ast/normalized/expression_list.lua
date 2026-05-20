@@ -1,5 +1,6 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local TyList = require("compiler.ast.typed.expression_list").TyList
 
 ---@class NList : NormExpression
 ---@field kind "NList"
@@ -66,7 +67,6 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NList:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local TyList = require("compiler.ast.typed.expression_list").TyList
     ---@type TypedExpression[]
     local items = {}
     for i, x in ipairs(self.items) do

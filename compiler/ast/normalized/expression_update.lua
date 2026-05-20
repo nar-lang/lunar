@@ -1,5 +1,8 @@
 local NormExpression = require("compiler.ast.normalized.expression").NormExpression
 local _NormModuleMod = require("compiler.ast.normalized.module")
+local utils = require("compiler.ast.normalized.utils")
+local recordMod = require("compiler.ast.typed.expression_record")
+local TyUpdate = require("compiler.ast.typed.expression_update").TyUpdate
 
 ---Record update expression. When `moduleName` is non-nil the update targets a
 ---module-level definition (Global). Otherwise it targets the local bound by
@@ -93,10 +96,7 @@ end
 ---@return TypedExpression|nil e
 ---@return string|nil err
 function NUpdate:annotate(ctx, typeParams, modules, typedModules, moduleName, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local recordMod = require("compiler.ast.typed.expression_record")
     local TyRecordField = recordMod.TyRecordField
-    local TyUpdate = require("compiler.ast.typed.expression_update").TyUpdate
     ---@type table[]
     local fields = {}
     for i, f in ipairs(self.fields) do

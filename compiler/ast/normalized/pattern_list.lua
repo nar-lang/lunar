@@ -1,4 +1,6 @@
 local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
+local utils = require("compiler.ast.normalized.utils")
+local TyPList = require("compiler.ast.typed.pattern_list").TyPList
 
 ---@class NPList : NormPattern
 ---@field kind "NPList"
@@ -53,8 +55,6 @@ end
 ---@return TypedPattern|nil p
 ---@return string|nil err
 function NPList:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyPList = require("compiler.ast.typed.pattern_list").TyPList
     ---@type TypedPattern[]
     local items = {}
     for i, x in ipairs(self.items) do

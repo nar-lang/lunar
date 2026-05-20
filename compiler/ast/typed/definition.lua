@@ -7,6 +7,7 @@ local TyFunc = require("compiler.ast.typed.type_func").TyFunc
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
 local binaryMod = require("compiler.bytecode.binary")
+local utils = require("compiler.ast.typed.utils")
 
 ---@class TypedDefinition : TypedStatement
 ---@field kind "TypedDefinition"
@@ -165,7 +166,6 @@ end
 
 ---@return string|nil err
 function TypedDefinition:checkPatterns()
-    local utils = require("compiler.ast.typed.utils")
     for _, pattern in ipairs(self.params) do
         local err = utils.checkPattern(pattern)
         if err ~= nil then

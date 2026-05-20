@@ -1,4 +1,7 @@
 local Counters = require("compiler.ast.normalized.defines").Counters
+local utils = require("compiler.ast.normalized.utils")
+local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
+local TypedModule = require("compiler.ast.typed.module").TypedModule
 -- NormDefinition is required lazily inside extractLambda to avoid a
 -- top-level require cycle (definition.lua requires this module so that
 -- LuaLS can resolve `---@param o NormModule` on NormDefinition methods).
@@ -62,9 +65,9 @@ end
 ---@return Identifier[] usedLocals
 ---@return NormExpression replacement
 function NormModule:extractLambda(loc, parentName, params, body, locals, name, nameLocation)
-    local utils = require("compiler.ast.normalized.utils")
+    -- Inline requires below break a top-level cycle:
+    -- module <-> {definition, expression_global, expression_local, expression_apply}.
     local NormDefinition = require("compiler.ast.normalized.definition").NormDefinition
-    local NPNamed = require("compiler.ast.normalized.pattern_named").NPNamed
     local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
     local NLocal = require("compiler.ast.normalized.expression_local").NLocal
     local NApply = require("compiler.ast.normalized.expression_apply").NApply
@@ -90,7 +93,8 @@ function NormModule:extractLambda(loc, parentName, params, body, locals, name, n
         allParams[#allParams + 1] = p
     end
 
-    local lambdaDef = NormDefinition.new(loc, Counters.lastDefinitionId, true, lambdaName, nameLocation, allParams, body, nil)
+    local lambdaDef = NormDefinition.new(loc, Counters.lastDefinitionId, true, lambdaName, nameLocation, allParams, body,
+        nil)
     self.definitions[#self.definitions + 1] = lambdaDef
 
     ---@type NormExpression
@@ -142,7 +146,6 @@ function NormModule:annotate(modules, typedModules)
         end
     end
 
-    local TypedModule = require("compiler.ast.typed.module").TypedModule
     local o = TypedModule.new(self.location, self.name, self.dependencies, nil)
     typedModules[self.name] = o
 

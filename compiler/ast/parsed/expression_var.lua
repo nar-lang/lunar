@@ -3,6 +3,7 @@ local NLocal = require("compiler.ast.normalized.expression_local").NLocal
 local NGlobal = require("compiler.ast.normalized.expression_global").NGlobal
 local Location = require("compiler.ast.location").Location
 local utils = require("compiler.ast.parsed.utils")
+local Access = require("compiler.ast.parsed.expression_access").Access
 
 ---@class Var : Expression
 ---@field kind "Var"
@@ -52,7 +53,6 @@ function Var:normalize(locals, modules, module, normalizedModule)
         parts[#parts + 1] = p
     end
     if #parts > 1 then
-        local Access = require("compiler.ast.parsed.expression_access").Access
         ---@type Expression
         local varAccess = Var.new(self.location, parts[1])
         for i = 2, #parts do

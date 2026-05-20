@@ -1,4 +1,6 @@
 local NormPattern = require("compiler.ast.normalized.pattern").NormPattern
+local utils = require("compiler.ast.normalized.utils")
+local TyPAny = require("compiler.ast.typed.pattern_any").TyPAny
 
 ---@class NPAny : NormPattern
 ---@field kind "NPAny"
@@ -40,8 +42,6 @@ end
 ---@return TypedPattern|nil p
 ---@return string|nil err
 function NPAny:annotate(ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
-    local utils = require("compiler.ast.normalized.utils")
-    local TyPAny = require("compiler.ast.typed.pattern_any").TyPAny
     local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
     if derr ~= nil then
         return nil, derr
