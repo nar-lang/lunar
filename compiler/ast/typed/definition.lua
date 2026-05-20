@@ -254,7 +254,7 @@ function TypedDefinition:bytecode(pathId, modName, binary, hash)
             ops, locations = bytecode.appendJump(0, true, p.location, ops, locations)
             ops, locations = bytecode.appendSwapPop(p.location, bytecode.SWAP_POP_MODE_POP, ops, locations)
         end
-        ops, locations = self.body:appendBytecode(ops, locations, binary, hash)
+        ops, locations = body:appendBytecode(ops, locations, binary, hash)
     end
 
     return binaryMod.Func.new(

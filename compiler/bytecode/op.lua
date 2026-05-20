@@ -11,7 +11,7 @@
 ---the word directly. uint32 `a` fits into the top half without ever colliding
 ---with the low byte fields.
 
-local Op = {}
+local Op                    = {}
 
 ---@alias OpKind integer
 ---@alias PatternKind integer
@@ -24,18 +24,18 @@ local Op = {}
 ---@alias Pointer integer
 
 -- OpKind ---------------------------------------------------------------------
-Op.OP_KIND_NONE         = 0
-Op.OP_KIND_LOAD_LOCAL   = 1
-Op.OP_KIND_LOAD_GLOBAL  = 2
-Op.OP_KIND_LOAD_CONST   = 3
-Op.OP_KIND_APPLY        = 4
-Op.OP_KIND_CALL         = 5
-Op.OP_KIND_JUMP         = 6
-Op.OP_KIND_MAKE_OBJECT  = 7
-Op.OP_KIND_MAKE_PATTERN = 8
-Op.OP_KIND_ACCESS       = 9
-Op.OP_KIND_UPDATE       = 10
-Op.OP_KIND_SWAP_POP     = 11
+Op.OP_KIND_NONE             = 0
+Op.OP_KIND_LOAD_LOCAL       = 1
+Op.OP_KIND_LOAD_GLOBAL      = 2
+Op.OP_KIND_LOAD_CONST       = 3
+Op.OP_KIND_APPLY            = 4
+Op.OP_KIND_CALL             = 5
+Op.OP_KIND_JUMP             = 6
+Op.OP_KIND_MAKE_OBJECT      = 7
+Op.OP_KIND_MAKE_PATTERN     = 8
+Op.OP_KIND_ACCESS           = 9
+Op.OP_KIND_UPDATE           = 10
+Op.OP_KIND_SWAP_POP         = 11
 
 -- PatternKind ----------------------------------------------------------------
 Op.PATTERN_KIND_NONE        = 0
@@ -50,36 +50,36 @@ Op.PATTERN_KIND_RECORD      = 8
 Op.PATTERN_KIND_TUPLE       = 9
 
 -- ConstKind ------------------------------------------------------------------
-Op.CONST_KIND_NONE   = 0
-Op.CONST_KIND_UNIT   = 1
-Op.CONST_KIND_CHAR   = 2
-Op.CONST_KIND_INT    = 3
-Op.CONST_KIND_FLOAT  = 4
-Op.CONST_KIND_STRING = 5
+Op.CONST_KIND_NONE          = 0
+Op.CONST_KIND_UNIT          = 1
+Op.CONST_KIND_CHAR          = 2
+Op.CONST_KIND_INT           = 3
+Op.CONST_KIND_FLOAT         = 4
+Op.CONST_KIND_STRING        = 5
 
 -- StackKind ------------------------------------------------------------------
-Op.STACK_KIND_NONE    = 0
-Op.STACK_KIND_OBJECT  = 1
-Op.STACK_KIND_PATTERN = 2
+Op.STACK_KIND_NONE          = 0
+Op.STACK_KIND_OBJECT        = 1
+Op.STACK_KIND_PATTERN       = 2
 
 -- ObjectKind -----------------------------------------------------------------
-Op.OBJECT_KIND_NONE   = 0
-Op.OBJECT_KIND_LIST   = 1
-Op.OBJECT_KIND_TUPLE  = 2
-Op.OBJECT_KIND_RECORD = 3
-Op.OBJECT_KIND_OPTION = 4
+Op.OBJECT_KIND_NONE         = 0
+Op.OBJECT_KIND_LIST         = 1
+Op.OBJECT_KIND_TUPLE        = 2
+Op.OBJECT_KIND_RECORD       = 3
+Op.OBJECT_KIND_OPTION       = 4
 
 -- SwapPopMode ----------------------------------------------------------------
-Op.SWAP_POP_MODE_NONE = 0
-Op.SWAP_POP_MODE_BOTH = 1
-Op.SWAP_POP_MODE_POP  = 2
+Op.SWAP_POP_MODE_NONE       = 0
+Op.SWAP_POP_MODE_BOTH       = 1
+Op.SWAP_POP_MODE_POP        = 2
 
 -- ----------------------------------------------------------------------------
 -- Op packing helpers
 -- ----------------------------------------------------------------------------
 
-local U8_MASK = 0xff
-local U32_MASK = 0xffffffff
+local U8_MASK               = 0xff
+local U32_MASK              = 0xffffffff
 
 ---@param kind OpKind
 ---@param b integer
@@ -145,12 +145,22 @@ function Op.appendLoadLocal(name, loc, ops, locations, binary, hash)
 end
 
 ---@param ptr Pointer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@return integer[], integer[][]
 function Op.appendLoadGlobal(ptr, loc, ops, locations)
     ops[#ops + 1] = buildOp(Op.OP_KIND_LOAD_GLOBAL, 0, 0, ptr)
     appendLoc(locations, loc)
     return ops, locations
 end
 
+---@param stack integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@return integer[], integer[][]
 function Op.appendLoadConstUnitValue(stack, loc, ops, locations, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_LOAD_CONST, stack, Op.CONST_KIND_UNIT, 0)
     appendLoc(locations, loc)
@@ -158,6 +168,12 @@ function Op.appendLoadConstUnitValue(stack, loc, ops, locations, binary)
 end
 
 ---@param v integer rune (unicode codepoint)
+---@param stack integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@return integer[], integer[][]
 function Op.appendLoadConstCharValue(v, stack, loc, ops, locations, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_LOAD_CONST, stack, Op.CONST_KIND_CHAR, v)
     appendLoc(locations, loc)
@@ -165,6 +181,13 @@ function Op.appendLoadConstCharValue(v, stack, loc, ops, locations, binary)
 end
 
 ---@param v integer
+---@param stack integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendLoadConstIntValue(v, stack, loc, ops, locations, binary, hash)
     local PackedInt = require("compiler.bytecode.const_hash").PackedInt
     local idx = hash:hashConst(PackedInt.new(v), binary)
@@ -174,6 +197,13 @@ function Op.appendLoadConstIntValue(v, stack, loc, ops, locations, binary, hash)
 end
 
 ---@param v number
+---@param stack integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendLoadConstFloatValue(v, stack, loc, ops, locations, binary, hash)
     local PackedFloat = require("compiler.bytecode.const_hash").PackedFloat
     local idx = hash:hashConst(PackedFloat.new(v), binary)
@@ -183,6 +213,13 @@ function Op.appendLoadConstFloatValue(v, stack, loc, ops, locations, binary, has
 end
 
 ---@param v string
+---@param stack integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendLoadConstStringValue(v, stack, loc, ops, locations, binary, hash)
     local idx = hash:hashString(v, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_LOAD_CONST, stack, Op.CONST_KIND_STRING, idx)
@@ -191,6 +228,10 @@ function Op.appendLoadConstStringValue(v, stack, loc, ops, locations, binary, ha
 end
 
 ---@param numArgs integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@return integer[], integer[][]
 function Op.appendApply(numArgs, loc, ops, locations)
     ops[#ops + 1] = buildOp(Op.OP_KIND_APPLY, numArgs, 0, 0)
     appendLoc(locations, loc)
@@ -199,6 +240,12 @@ end
 
 ---@param name string
 ---@param numArgs integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendCall(name, numArgs, loc, ops, locations, binary, hash)
     local h = hash:hashString(name, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_CALL, numArgs, 0, h)
@@ -208,6 +255,10 @@ end
 
 ---@param jumpDelta integer
 ---@param conditional boolean
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@return integer[], integer[][]
 function Op.appendJump(jumpDelta, conditional, loc, ops, locations)
     local v = 0
     if conditional then
@@ -220,6 +271,10 @@ end
 
 ---@param kind ObjectKind
 ---@param numArgs integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@return integer[], integer[][]
 function Op.appendMakeObject(kind, numArgs, loc, ops, locations)
     ops[#ops + 1] = buildOp(Op.OP_KIND_MAKE_OBJECT, kind, 0, numArgs)
     appendLoc(locations, loc)
@@ -229,6 +284,12 @@ end
 ---@param kind PatternKind
 ---@param name string
 ---@param numNested integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendMakePattern(kind, name, numNested, loc, ops, locations, binary, hash)
     local h = hash:hashString(name, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_MAKE_PATTERN, kind, numNested, h)
@@ -238,6 +299,11 @@ end
 
 ---@param kind PatternKind
 ---@param numNested integer
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@return integer[], integer[][]
 function Op.appendMakePatternLong(kind, numNested, loc, ops, locations, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_MAKE_PATTERN, kind, 0, numNested)
     appendLoc(locations, loc)
@@ -245,6 +311,12 @@ function Op.appendMakePatternLong(kind, numNested, loc, ops, locations, binary)
 end
 
 ---@param field string
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendAccess(field, loc, ops, locations, binary, hash)
     local h = hash:hashString(field, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_ACCESS, 0, 0, h)
@@ -253,6 +325,12 @@ function Op.appendAccess(field, loc, ops, locations, binary, hash)
 end
 
 ---@param field string
+---@param loc Location
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
 function Op.appendUpdate(field, loc, ops, locations, binary, hash)
     local h = hash:hashString(field, binary)
     ops[#ops + 1] = buildOp(Op.OP_KIND_UPDATE, 0, 0, h)
@@ -260,7 +338,11 @@ function Op.appendUpdate(field, loc, ops, locations, binary, hash)
     return ops, locations
 end
 
+---@param loc Location
 ---@param mode SwapPopMode
+---@param ops integer[]
+---@param locations integer[][]
+---@return integer[], integer[][]
 function Op.appendSwapPop(loc, mode, ops, locations)
     ops[#ops + 1] = buildOp(Op.OP_KIND_SWAP_POP, mode, 0, 0)
     appendLoc(locations, loc)

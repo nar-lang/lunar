@@ -75,11 +75,10 @@ end
 -- Write
 -- ----------------------------------------------------------------------------
 
----Serialize this Binary to a writer. The writer must have a :write(bytes)
----method (e.g. a file handle opened with `io.open(path, "wb")`).
----@param writer file*|table
+---Serialize this Binary to a byte string.
 ---@param debug boolean
-function Binary:write(writer, debug)
+---@return string
+function Binary:build(debug)
     local parts = {}
 
     local function w(fmt, ...)
@@ -161,7 +160,7 @@ function Binary:write(writer, debug)
         w("<i4", self.packages[p])
     end
 
-    writer:write(table.concat(parts))
+    return table.concat(parts)
 end
 
 return {

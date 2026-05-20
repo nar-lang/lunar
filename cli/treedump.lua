@@ -338,7 +338,7 @@ for _, root in ipairs(roots) do
             io.stderr:write("write " .. outPath .. ": " .. tostring(err) .. "\n")
             totalErr = totalErr + 1
         else
-            binary:write(f, true)
+            f:write(binary:build(true))
             f:close()
             bytecodeOk = bytecodeOk + 1
         end
