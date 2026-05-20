@@ -21,7 +21,7 @@ end
 function NormStatement:setSuccessor(typed)
     self.successor = typed
     return typed
- end
+end
 
 ---Module-scoped counters that mirror the package-level state in Go.
 
