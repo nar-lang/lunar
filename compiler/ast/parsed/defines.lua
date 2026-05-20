@@ -1,4 +1,3 @@
-local treePrint = require("lunar.compiler.ast.parsed.tree_print")
 ---@alias NamedTypeMap table<FullIdentifier, NormType>
 
 ---@class Statement
@@ -11,14 +10,6 @@ Statement.__index = Statement
 ---@param f fun(stmt: Statement)
 function Statement:iterate(f)
     error("abstract method 'iterate' not implemented for kind=" .. tostring(self.kind), 2)
-end
-
----Render this node and all of its descendants as a single multi-line string.
----One line per node, indented with `\t * offset`.
----@param offset integer
----@return string
-function Statement:stringTree(offset)
-    return treePrint.stringTree(self, offset or 0)
 end
 
 ---Merge variadic error lists into a single flat list. nil arguments are ignored.

@@ -1,4 +1,3 @@
-local treePrint = require("lunar.compiler.ast.typed.tree_print")
 ---@alias TypedLocalTypesMap table<Identifier, TypedType>
 
 ---@class TypedStatement
@@ -6,12 +5,6 @@ local treePrint = require("lunar.compiler.ast.typed.tree_print")
 ---@field location Location
 local TypedStatement = {}
 TypedStatement.__index = TypedStatement
-
----@param offset integer
----@return string
-function TypedStatement:stringTree(offset)
-    return treePrint.stringTree(self, offset or 0)
-end
 
 return {
     TypedStatement = TypedStatement,

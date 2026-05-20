@@ -1,7 +1,7 @@
 -- Tree dump CLI: walks one or more directories, parses every *.nar file
 -- with compiler.parser and writes the parsed AST tree (via
--- module:stringTree(0)) to <file>.tree.lua.txt for diffing against the Go
--- implementation's output.
+-- ParsedTreePrint.stringTree(module, 0)) to <file>.tree.lua.txt for diffing
+-- against the Go implementation's output.
 --
 -- With the `--normalized` flag, all `.nar` files under the given roots are
 -- parsed first, generate + normalize is run with the full module map, and the
@@ -16,14 +16,15 @@
 -- redundancy). The resulting fully-typed tree is written to
 -- `<file>.tree.checked.lua.txt`.
 --
--- Usage: lua lunar/cli/treedump.lua [--normalized | --typed | --checked] <root> [<root> ...]
+-- Usage: lua lunar/debug/treedump.lua [--normalized | --typed | --checked | --bytecode] <root> [<root> ...]
 --
 -- Module roots are resolved relative to the workspace's `lunar/` folder
 -- (which must be on package.path).
 
 local Parser = require("lunar.compiler.parser")
-local NormalizedTreePrint = require("lunar.compiler.ast.normalized.tree_print")
-local TypedTreePrint = require("lunar.compiler.ast.typed.tree_print")
+local ParsedTreePrint = require("lunar.debug.tree_print.parsed")
+local NormalizedTreePrint = require("lunar.debug.tree_print.normalized")
+local TypedTreePrint = require("lunar.debug.tree_print.typed")
 local BinaryMod = require("lunar.compiler.bytecode.binary")
 local BinaryHashMod = require("lunar.compiler.bytecode.binary_hash")
 
@@ -107,7 +108,7 @@ if not normalizedMode then
                 local firstErr = (errors and errors[1]) or "unknown error"
                 io.stderr:write("parse " .. path .. ": " .. tostring(firstErr) .. "\n")
             else
-                writeAll(path .. ".tree.lua.txt", module:stringTree(0))
+                writeAll(path .. ".tree.lua.txt", ParsedTreePrint.stringTree(module, 0))
                 totalOk = totalOk + 1
             end
         end

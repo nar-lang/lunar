@@ -1,4 +1,3 @@
-local treePrint = require("lunar.compiler.ast.normalized.tree_print")
 ---@alias NormPatternMap table<Identifier, table>
 ---@alias TypeParamsMap table<Identifier, TypedType>
 ---@alias PlaceholderMap table<FullIdentifier, TypedType>
@@ -24,13 +23,8 @@ function NormStatement:setSuccessor(typed)
     return typed
  end
 
----@param offset integer
----@return string
-function NormStatement:stringTree(offset)
-    return treePrint.stringTree(self, offset or 0)
-end
-
 ---Module-scoped counters that mirror the package-level state in Go.
+
 local Counters = {
     lastDefinitionId = 0,
     lastLambdaId = 0,
