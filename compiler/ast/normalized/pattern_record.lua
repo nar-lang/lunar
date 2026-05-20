@@ -75,6 +75,7 @@ function NPRecord:annotate(ctx, typeParams, modules, typedModules, moduleName, t
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPRecord.new(ctx, self.location, declared, fields))
 end
 

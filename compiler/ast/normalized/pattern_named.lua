@@ -50,6 +50,7 @@ function NPNamed:annotate(ctx, typeParams, modules, typedModules, moduleName, ty
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPNamed.new(ctx, self.location, declared, self.name))
 end
 

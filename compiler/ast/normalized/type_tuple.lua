@@ -1,5 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
-local TTuple = require("compiler.ast.typed.type_tuple").TTuple
+local TyTupleType = require("compiler.ast.typed.type_tuple").TyTupleType
 
 ---@class NTTuple : NormType
 ---@field kind "NTTuple"
@@ -46,9 +46,10 @@ function NTTuple:annotate(ctx, params, source, placeholders)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         items[i] = x
     end
-    return self:setSuccessor(TTuple.new(self.location, items))
+    return self:setSuccessor(TyTupleType.new(self.location, items))
 end
 
 return { NTTuple = NTTuple }

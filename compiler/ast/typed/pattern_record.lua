@@ -1,6 +1,6 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TRecord = require("compiler.ast.typed.type_record").TRecord
+local TyRecordType = require("compiler.ast.typed.type_record").TyRecordType
 local SimpleAnything = require("compiler.ast.typed.simple_pattern").SimpleAnything
 local CString = require("compiler.ast.const").CString
 local bytecode = require("compiler.bytecode.op")
@@ -67,12 +67,14 @@ function TyPRecord:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, f in ipairs(self.fields) do
         local ft, ferr = f.type_:mapTo(subst)
         if ferr ~= nil then
             return ferr
         end
+        ---@cast ft -nil
         f.type_ = ft
     end
     return nil
@@ -109,7 +111,7 @@ function TyPRecord:appendEquations(eqs, loc, localDefs, ctx, stack)
     for _, f in ipairs(self.fields) do
         fields[f.name] = f.type_
     end
-    local typeRecord = TRecord.new(self.location, fields, true)
+    local typeRecord = TyRecordType.new(self.location, fields, true)
     eqs[#eqs + 1] = newEquation(self, self.type_, typeRecord)
     if self.declaredType ~= nil then
         eqs[#eqs + 1] = newEquation(self, self.type_, self.declaredType)

@@ -86,6 +86,7 @@ function TData:normalize(modules, module, namedTypes)
         if err ~= nil then
             return nil, err
         end
+        ---@cast na -nil
         args[i] = na
     end
     local options = {}
@@ -96,6 +97,7 @@ function TData:normalize(modules, module, namedTypes)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast nv -nil
             values[j] = nv
         end
         options[i] = NDataOption.new(opt.name, opt.hidden, values)
@@ -114,6 +116,7 @@ function TData:applyArgs(params, loc)
         if err ~= nil then
             return nil, err
         end
+        ---@cast na -nil
         args[i] = na
     end
     return TData.new(loc, self.name, args, self.options, self.nameLocation), nil

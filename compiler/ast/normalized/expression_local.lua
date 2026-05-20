@@ -79,7 +79,9 @@ function NLocal:annotate(ctx, typeParams, modules, typedModules, moduleName, sta
     if self.target == nil then
         return nil, string.format("local variable `%s` not resolved", tostring(self.name))
     end
-    return self:setSuccessor(TyLocal.new(ctx, self.location, self.name, self.target.successor))
+    local successor = self.target.successor
+    ---@cast successor TypedPattern|nil
+    return self:setSuccessor(TyLocal.new(ctx, self.location, self.name, successor))
 end
 
 return { NLocal = NLocal }

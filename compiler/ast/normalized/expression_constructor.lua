@@ -84,8 +84,10 @@ function NConstructor:annotate(ctx, typeParams, modules, typedModules, moduleNam
     if err ~= nil then
         return nil, err
     end
+    ---@cast ctorDef -nil
     local t = ctorDef.declaredType
     if t ~= nil and #ctorDef.params > 0 and t.kind == "TFunc" then
+        ---@cast t TyFunc
         t = t.return_
     end
     ---@type TypedExpression[]
@@ -95,11 +97,13 @@ function NConstructor:annotate(ctx, typeParams, modules, typedModules, moduleNam
         if aerr ~= nil then
             return nil, aerr
         end
+        ---@cast a -nil
         args[i] = a
     end
-    ---@type TData|nil
+    ---@type TyData|nil
     local dt = nil
     if t ~= nil and t.kind == "TData" then
+        ---@cast t TyData
         dt = t
     end
     local dataName = makeFullIdentifier(self.moduleName, self.dataName)

@@ -1,45 +1,46 @@
 local TypedType = require("compiler.ast.typed.type").TypedType
 local newEquationBestLoc = require("compiler.ast.typed.equation").newEquationBestLoc
 
----@class TNative : TypedType
+---@class TyNative : TypedType
 ---@field kind "TNative"
 ---@field location Location
 ---@field name FullIdentifier
 ---@field args TypedType[]
-local TNative = setmetatable({}, { __index = TypedType })
-TNative.__index = TNative
+local TyNative = setmetatable({}, { __index = TypedType })
+TyNative.__index = TyNative
 
 ---@param loc Location
 ---@param name FullIdentifier
 ---@param args TypedType[]|nil
----@return TNative
-function TNative.new(loc, name, args)
+---@return TyNative
+function TyNative.new(loc, name, args)
     return setmetatable({
         kind = "TNative",
         location = loc,
         name = name,
         args = args or {},
-    }, TNative)
+    }, TyNative)
 end
 
 ---@param ctx SolvingContext
 ---@param ubMap table<integer, integer>
----@return TNative
-function TNative:makeUnique(ctx, ubMap)
+---@return TyNative
+function TyNative:makeUnique(ctx, ubMap)
     ---@type TypedType[]
     local args = {}
     for i, a in ipairs(self.args) do
         args[i] = a:makeUnique(ctx, ubMap)
     end
-    return TNative.new(self.location, self.name, args)
+    return TyNative.new(self.location, self.name, args)
 end
 
 ---@param other TypedType
 ---@param loc Location
 ---@return Equation[]|nil eqs
 ---@return string|nil err
-function TNative:merge(other, loc)
+function TyNative:merge(other, loc)
     if other ~= nil and other.kind == "TNative" then
+        ---@cast other TyNative
         if other.name == self.name and #self.args == #other.args then
             ---@type Equation[]
             local eqs = {}
@@ -55,12 +56,13 @@ end
 ---@param subst table<integer, TypedType>
 ---@return TypedType|nil t
 ---@return string|nil err
-function TNative:mapTo(subst)
+function TyNative:mapTo(subst)
     for i, a in ipairs(self.args) do
         local x, err = a:mapTo(subst)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         self.args[i] = x
     end
     return self, nil
@@ -69,10 +71,11 @@ end
 ---@param other TypedType
 ---@param req table<FullIdentifier, true>|nil
 ---@return boolean
-function TNative:equalsTo(other, req)
+function TyNative:equalsTo(other, req)
     if other == nil or other.kind ~= "TNative" then
         return false
     end
+    ---@cast other TyNative
     if other.name ~= self.name then
         return false
     end
@@ -89,7 +92,7 @@ end
 
 ---@param currentModule QualifiedIdentifier|""
 ---@return string
-function TNative:code(currentModule)
+function TyNative:code(currentModule)
     local parts = {}
     for _, x in ipairs(self.args) do
         parts[#parts + 1] = x:code("")
@@ -108,4 +111,4 @@ function TNative:code(currentModule)
     return s .. tp
 end
 
-return { TNative = TNative }
+return { TyNative = TyNative }

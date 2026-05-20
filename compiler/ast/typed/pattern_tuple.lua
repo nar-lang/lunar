@@ -1,8 +1,8 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TTuple = require("compiler.ast.typed.type_tuple").TTuple
-local TData = require("compiler.ast.typed.type_data").TData
-local DataOption = require("compiler.ast.typed.type_data").DataOption
+local TyTupleType = require("compiler.ast.typed.type_tuple").TyTupleType
+local TyData = require("compiler.ast.typed.type_data").TyData
+local TyDataOption = require("compiler.ast.typed.type_data").TyDataOption
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local bytecode = require("compiler.bytecode.op")
 
@@ -48,11 +48,11 @@ function TyPTuple:simplify()
     for i, x in ipairs(self.items) do
         values[i] = x:getType()
     end
-    local union = TData.new(
+    local union = TyData.new(
         self.location,
         string.format("!!%d", #self.items),
         nil,
-        { DataOption.new("Only", values) })
+        { TyDataOption.new("Only", values) })
     return SimpleConstructor.new(union, "Only", args)
 end
 
@@ -63,6 +63,7 @@ function TyPTuple:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, item in ipairs(self.items) do
         err = item:mapTypes(subst)
@@ -100,12 +101,13 @@ function TyPTuple:appendEquations(eqs, loc, localDefs, ctx, stack)
         end
         items[i] = t
     end
-    eqs[#eqs + 1] = newEquation(self, self.type_, TTuple.new(self.location, items))
+    eqs[#eqs + 1] = newEquation(self, self.type_, TyTupleType.new(self.location, items))
     for _, item in ipairs(self.items) do
         local newEqs, err = item:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     if self.declaredType ~= nil then

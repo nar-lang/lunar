@@ -1,7 +1,7 @@
 local NormType = require("compiler.ast.normalized.type").NormType
 local typedTData = require("compiler.ast.typed.type_data")
-local TData = typedTData.TData
-local DataOption = typedTData.DataOption
+local TyData = typedTData.TyData
+local TyDataOption = typedTData.TyDataOption
 local makeDataOptionIdentifier = require("compiler.common.builtins").makeDataOptionIdentifier
 
 ---@class NDataOption
@@ -86,11 +86,12 @@ function NTData:annotate(ctx, params, source, placeholders)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         args[i] = x
     end
-    local annotatedData = TData.new(self.location, self.name, args, nil)
+    local annotatedData = TyData.new(self.location, self.name, args, nil)
     placeholders[self.name] = annotatedData
-    ---@type DataOption[]
+    ---@type TyDataOption[]
     local options = {}
     for i, opt in ipairs(self.options) do
         ---@type TypedType[]
@@ -103,6 +104,7 @@ function NTData:annotate(ctx, params, source, placeholders)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast x -nil
             -- A NTPlaceholder may legitimately resolve to nil when the
             -- placeholder is queried before its enclosing data type has
             -- registered itself. Skip the slot rather than inserting a
@@ -111,7 +113,7 @@ function NTData:annotate(ctx, params, source, placeholders)
                 values[#values + 1] = x
             end
         end
-        options[i] = DataOption.new(makeDataOptionIdentifier(self.name, opt.name), values)
+        options[i] = TyDataOption.new(makeDataOptionIdentifier(self.name, opt.name), values)
     end
     annotatedData:setOptions(options)
     return self:setSuccessor(annotatedData)

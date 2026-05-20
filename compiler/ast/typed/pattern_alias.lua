@@ -43,6 +43,7 @@ function TyPAlias:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     return self.nested:mapTypes(subst)
 end
@@ -70,6 +71,7 @@ function TyPAlias:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast newEqs -nil
     newEqs[#newEqs + 1] = newEquation(self, self.type_, self.nested:getType())
     if self.declaredType ~= nil then
         newEqs[#newEqs + 1] = newEquation(self, self.type_, self.declaredType)

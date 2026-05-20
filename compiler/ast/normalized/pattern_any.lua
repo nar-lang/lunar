@@ -46,6 +46,7 @@ function NPAny:annotate(ctx, typeParams, modules, typedModules, moduleName, type
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPAny.new(ctx, self.location, declared))
 end
 

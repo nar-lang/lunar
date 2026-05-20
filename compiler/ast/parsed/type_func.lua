@@ -64,6 +64,7 @@ function TFunc:normalize(modules, module, namedTypes)
         if err ~= nil then
             return nil, err
         end
+        ---@cast np -nil
         params[i] = np
     end
     if self.return_ == nil then
@@ -90,6 +91,7 @@ function TFunc:applyArgs(params, loc)
         if err ~= nil then
             return nil, err
         end
+        ---@cast np -nil
         fnParams[i] = np
     end
     if self.return_ == nil then
@@ -99,6 +101,7 @@ function TFunc:applyArgs(params, loc)
     if err ~= nil then
         return nil, err
     end
+    ---@cast ret -nil
     return TFunc.new(loc, fnParams, ret), nil
 end
 

@@ -45,6 +45,7 @@ function TNative:normalize(modules, module, namedTypes)
         if err ~= nil then
             return nil, err
         end
+        ---@cast na -nil
         args[i] = na
     end
     return self:setSuccessor(NTNative.new(self.location, self.name, args)), nil
@@ -61,6 +62,7 @@ function TNative:applyArgs(params, loc)
         if err ~= nil then
             return nil, err
         end
+        ---@cast na -nil
         args[i] = na
     end
     return TNative.new(loc, self.name, args, self.nameLocation), nil

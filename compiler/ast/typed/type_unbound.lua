@@ -86,6 +86,7 @@ function TUnbound:equalsTo(other, req)
     if other == nil or other.kind ~= "TUnbound" then
         return false
     end
+    ---@cast other TUnbound
     return self.index == other.index and self.constraint == other.constraint
 end
 

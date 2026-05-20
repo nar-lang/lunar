@@ -1,6 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TTuple = require("compiler.ast.typed.type_tuple").TTuple
+local TyTupleType = require("compiler.ast.typed.type_tuple").TyTupleType
 local bytecode = require("compiler.bytecode.op")
 
 ---@class TyTuple : TypedExpression
@@ -44,6 +44,7 @@ function TyTuple:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, item in ipairs(self.items) do
         err = item:mapTypes(subst)
@@ -81,12 +82,13 @@ function TyTuple:appendEquations(eqs, loc, localDefs, ctx, stack)
         end
         items[i] = t
     end
-    eqs[#eqs + 1] = newEquation(self, self.type_, TTuple.new(self.location, items))
+    eqs[#eqs + 1] = newEquation(self, self.type_, TyTupleType.new(self.location, items))
     for _, item in ipairs(self.items) do
         local newEqs, err = item:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     return eqs, nil

@@ -1,47 +1,49 @@
 local TypedType = require("compiler.ast.typed.type").TypedType
 local newEquationBestLoc = require("compiler.ast.typed.equation").newEquationBestLoc
 
----@class TRecord : TypedType
+---@class TyRecordType : TypedType
 ---@field kind "TRecord"
 ---@field location Location
 ---@field fields table<Identifier, TypedType>
 ---@field mayHaveMoreFields boolean
-local TRecord = setmetatable({}, { __index = TypedType })
-TRecord.__index = TRecord
+local TyRecordType = setmetatable({}, { __index = TypedType })
+TyRecordType.__index = TyRecordType
 
 ---@param loc Location
 ---@param fields table<Identifier, TypedType>|nil
 ---@param mayHaveMoreFields boolean
----@return TRecord
-function TRecord.new(loc, fields, mayHaveMoreFields)
+---@return TyRecordType
+function TyRecordType.new(loc, fields, mayHaveMoreFields)
     return setmetatable({
         kind = "TRecord",
         location = loc,
         fields = fields or {},
         mayHaveMoreFields = mayHaveMoreFields == true,
-    }, TRecord)
+    }, TyRecordType)
 end
 
 ---@param ctx SolvingContext
 ---@param ubMap table<integer, integer>
----@return TRecord
-function TRecord:makeUnique(ctx, ubMap)
+---@return TyRecordType
+function TyRecordType:makeUnique(ctx, ubMap)
     ---@type table<Identifier, TypedType>
     local nf = {}
     for n, f in pairs(self.fields) do
         nf[n] = f:makeUnique(ctx, ubMap)
     end
-    return TRecord.new(self.location, nf, self.mayHaveMoreFields)
+    return TyRecordType.new(self.location, nf, self.mayHaveMoreFields)
 end
 
 ---@param other TypedType
 ---@param loc Location
 ---@return Equation[]|nil eqs
 ---@return string|nil err
-function TRecord:merge(other, loc)
+function TyRecordType:merge(other, loc)
     if other == nil or other.kind ~= "TRecord" then
-        return nil, string.format("cannot match %s and %s", other:code(""), self:code(""))
+        local otherCode = other ~= nil and other:code("") or "nil"
+        return nil, string.format("cannot match %s and %s", otherCode, self:code(""))
     end
+    ---@cast other TyRecordType
     ---@type Equation[]
     local eqs = {}
     -- Iterate in sorted order for deterministic equation list ordering.
@@ -75,12 +77,13 @@ end
 ---@param subst table<integer, TypedType>
 ---@return TypedType|nil t
 ---@return string|nil err
-function TRecord:mapTo(subst)
+function TyRecordType:mapTo(subst)
     for n, f in pairs(self.fields) do
         local x, err = f:mapTo(subst)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         self.fields[n] = x
     end
     return self, nil
@@ -89,10 +92,11 @@ end
 ---@param other TypedType
 ---@param req table<FullIdentifier, true>|nil
 ---@return boolean
-function TRecord:equalsTo(other, req)
+function TyRecordType:equalsTo(other, req)
     if other == nil or other.kind ~= "TRecord" then
         return false
     end
+    ---@cast other TyRecordType
     local lc = 0
     for _ in pairs(self.fields) do
         lc = lc + 1
@@ -118,7 +122,7 @@ end
 
 ---@param currentModule QualifiedIdentifier|""
 ---@return string
-function TRecord:code(currentModule)
+function TyRecordType:code(currentModule)
     -- Sort fields for deterministic output (mirrors Go map iteration via
     -- the Lua port's stable rendering policy).
     local keys = {}
@@ -133,4 +137,4 @@ function TRecord:code(currentModule)
     return "{" .. table.concat(parts, ", ") .. "}"
 end
 
-return { TRecord = TRecord }
+return { TyRecordType = TyRecordType }

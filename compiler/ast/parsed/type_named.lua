@@ -83,6 +83,7 @@ function TNamed:normalize(modules, module, namedTypes)
     if err2 ~= nil then
         return nil, err2
     end
+    ---@cast nType -nil
     return self:setSuccessor(nType), nil
 end
 
@@ -97,6 +98,7 @@ function TNamed:applyArgs(params, loc)
         if err ~= nil then
             return nil, err
         end
+        ---@cast na -nil
         args[i] = na
     end
     return TNamed.new(loc, self.name, args, self.nameLocation), nil

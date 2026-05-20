@@ -74,6 +74,7 @@ function Definition:normalize(modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nParam -nil
         params[i] = nParam
     end
 
@@ -88,6 +89,7 @@ function Definition:normalize(modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nBody -nil
         body = nBody
     end
 
@@ -98,6 +100,7 @@ function Definition:normalize(modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nType -nil
         declaredType = nType
     end
 

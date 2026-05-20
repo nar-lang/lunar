@@ -77,12 +77,14 @@ function NCall:annotate(ctx, typeParams, modules, typedModules, moduleName, stac
         if err ~= nil then
             return nil, err
         end
+        ---@cast a -nil
         args[i] = a
     end
     local call, err = TyCall.new(ctx, self.location, self.name, args)
     if err ~= nil then
         return nil, err
     end
+    ---@cast call -nil
     return self:setSuccessor(call)
 end
 

@@ -2,6 +2,7 @@
 
 ---@class SimplePattern
 ---@field kind string
+---@field toString fun(self: SimplePattern): string
 local SimplePattern = {}
 SimplePattern.__index = SimplePattern
 
@@ -40,12 +41,16 @@ end
 local function constCode(v)
     local k = v.kind
     if k == "CInt" then
+        ---@cast v CInt
         return string.format("%d", v.value)
     elseif k == "CFloat" then
+        ---@cast v CFloat
         return string.format("%f", v.value)
     elseif k == "CString" then
+        ---@cast v CString
         return string.format('"%s"', v.value)
     elseif k == "CChar" then
+        ---@cast v CChar
         return string.format("'%s'", v.value)
     elseif k == "CUnit" then
         return "()"
@@ -60,15 +65,15 @@ end
 
 ---@class SimpleConstructor : SimplePattern
 ---@field kind "SimpleConstructor"
----@field union TData
+---@field union TyData
 ---@field name DataOptionIdentifier
 ---@field args SimplePattern[]
 local SimpleConstructor = setmetatable({}, { __index = SimplePattern })
 SimpleConstructor.__index = SimpleConstructor
 
----@param union TData
+---@param union TyData
 ---@param name DataOptionIdentifier
----@param args SimplePattern[]
+---@param args SimplePattern[]|nil
 ---@return SimpleConstructor
 function SimpleConstructor.new(union, name, args)
     return setmetatable({
@@ -95,7 +100,7 @@ function SimpleConstructor:toString()
     return table.concat(parts)
 end
 
----@return DataOption|nil
+---@return TyDataOption|nil
 ---@return string|nil err
 function SimpleConstructor:option()
     for _, o in ipairs(self.union.options) do

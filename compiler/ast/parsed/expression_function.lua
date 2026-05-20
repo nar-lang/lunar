@@ -85,6 +85,7 @@ function Function:normalize(locals, modules, module, normalizedModule)
         if err3 ~= nil then
             return nil, err3
         end
+        ---@cast nType -nil
         declaredType = nType
     end
     return self:setSuccessor(

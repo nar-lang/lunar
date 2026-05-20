@@ -1,8 +1,8 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TNative = require("compiler.ast.typed.type_native").TNative
-local TData = require("compiler.ast.typed.type_data").TData
-local DataOption = require("compiler.ast.typed.type_data").DataOption
+local TyNative = require("compiler.ast.typed.type_native").TyNative
+local TyData = require("compiler.ast.typed.type_data").TyData
+local TyDataOption = require("compiler.ast.typed.type_data").TyDataOption
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
@@ -43,9 +43,9 @@ function TyPCons:simplify()
     local a = self.ctx:newTypeAnnotation(self)
     local head = self.head:simplify()
     local tail = self.tail:simplify()
-    local union = TData.new(self.location, "!!list", nil, {
-        DataOption.new("Nil", nil),
-        DataOption.new("Cons", { a, TNative.new(self.location, builtins.NarBaseListList, { a }) }),
+    local union = TyData.new(self.location, "!!list", nil, {
+        TyDataOption.new("Nil", nil),
+        TyDataOption.new("Cons", { a, TyNative.new(self.location, builtins.NarBaseListList, { a }) }),
     })
     return SimpleConstructor.new(union, "Cons", { head, tail })
 end
@@ -57,6 +57,7 @@ function TyPCons:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     err = self.head:mapTypes(subst)
     if err ~= nil then
@@ -83,15 +84,20 @@ end
 ---@return Equation[]|nil eqs
 ---@return string|nil err
 function TyPCons:appendEquations(eqs, loc, localDefs, ctx, stack)
-    local typeNative = TNative.new(self.location, builtins.NarBaseListList, { self.head:getType() })
+    local typeNative = TyNative.new(self.location, builtins.NarBaseListList, { self.head:getType() })
     local newEqs, err = self.head:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
-    newEqs, err = self.tail:appendEquations(newEqs, loc, localDefs, ctx, stack)
+    ---@cast newEqs -nil
+    ---@type Equation[]|nil
+    local nextEqs
+    nextEqs, err = self.tail:appendEquations(newEqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast nextEqs -nil
+    newEqs = nextEqs
     newEqs[#newEqs + 1] = newEquation(self, self.type_, self.tail:getType())
     newEqs[#newEqs + 1] = newEquation(self, self.tail:getType(), typeNative)
     if self.declaredType ~= nil then

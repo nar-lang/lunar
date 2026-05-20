@@ -621,6 +621,7 @@ function Parser.parseNumber(src)
     if fErr ~= nil then
         return nil, nil, fErr
     end
+    ---@cast fValue -nil
     local floatPos = src.cursor
 
     src.cursor = pos
@@ -628,6 +629,7 @@ function Parser.parseNumber(src)
     if iErr ~= nil then
         return nil, nil, iErr
     end
+    ---@cast iValue -nil
 
     if fValue == nil then
         return iValue, nil, nil
@@ -653,6 +655,7 @@ function Parser.parseConst(src)
     if cErr ~= nil then
         return nil, cErr
     end
+    ---@cast cValue -nil
     if cValue ~= nil then
         return CChar.new(cValue), nil
     end
@@ -661,6 +664,7 @@ function Parser.parseConst(src)
     if sErr ~= nil then
         return nil, sErr
     end
+    ---@cast sValue -nil
     if sValue ~= nil then
         return CString.new(sValue), nil
     end
@@ -767,6 +771,7 @@ function Parser.parseType(src)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast t -nil
             if t == nil then
                 return nil, Parser.newError(src, "expected type here")
             end
@@ -786,6 +791,7 @@ function Parser.parseType(src)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast ret -nil
             if ret == nil then
                 return nil, Parser.newError(src, "expected return type here")
             end
@@ -821,6 +827,7 @@ function Parser.parseType(src)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast ft -nil
             if ft == nil then
                 return nil, Parser.newError(src, "expected field type here")
             end
@@ -859,6 +866,7 @@ function Parser.parseType(src)
                 if err ~= nil then
                     return nil, err
                 end
+                ---@cast t -nil
                 if t == nil then
                     return nil, Parser.newError(src, "expected type parameter here")
                 end
@@ -898,6 +906,7 @@ function Parser.parsePattern(src)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast item -nil
             if item == nil then
                 return nil, Parser.newError(src, "expected tuple item pattern here")
             end
@@ -951,6 +960,7 @@ function Parser.parsePattern(src)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast p -nil
             if p == nil then
                 return nil, Parser.newError(src, "expected list item pattern here")
             end
@@ -979,6 +989,7 @@ function Parser.parsePattern(src)
                 if err ~= nil then
                     return nil, err
                 end
+                ---@cast item -nil
                 if item == nil then
                     return nil, Parser.newError(src, "expected option value pattern here")
                 end
@@ -1017,6 +1028,7 @@ function Parser.parsePattern(src)
     if cErr ~= nil then
         return nil, cErr
     end
+    ---@cast cValue -nil
     if cValue ~= nil then
         return Parser.finishParsePattern(src,
             PConst.new(Parser.loc(src, cursor), cValue))
@@ -1037,6 +1049,7 @@ function Parser.finishParsePattern(src, pat)
         if err ~= nil then
             return nil, err
         end
+        ---@cast t -nil
         if t == nil then
             return nil, Parser.newError(src, "expected type here")
         end
@@ -1058,6 +1071,7 @@ function Parser.finishParsePattern(src, pat)
         if err ~= nil then
             return nil, err
         end
+        ---@cast tail -nil
         if tail == nil then
             return nil, Parser.newError(src, "expected list tail pattern here")
         end
@@ -1086,6 +1100,7 @@ function Parser.parseSignature(src)
         if perr ~= nil then
             return nil, nil, perr
         end
+        ---@cast pat -nil
         if pat == nil then
             return nil, nil, Parser.newError(src, "expected pattern here")
         end
@@ -1105,6 +1120,7 @@ function Parser.parseSignature(src)
         if err ~= nil then
             return nil, nil, err
         end
+        ---@cast ret -nil
         if ret == nil then
             return nil, nil, Parser.newError(src, "expected return type here")
         end
@@ -1125,6 +1141,7 @@ function Parser.parseExpression(src, negate)
     if cErr ~= nil then
         return nil, cErr
     end
+    ---@cast cValue -nil
     if cValue ~= nil then
         return Parser.finishParseExpression(src,
             ConstExpr.new(Parser.loc(src, cursor), cValue), negate)
@@ -1139,6 +1156,7 @@ function Parser.parseExpression(src, negate)
                 if ierr ~= nil then
                     return nil, ierr
                 end
+                ---@cast item -nil
                 if item == nil then
                     return nil, Parser.newError(src, "expected list item expression here")
                 end
@@ -1189,6 +1207,7 @@ function Parser.parseExpression(src, negate)
         if berr ~= nil then
             return nil, berr
         end
+        ---@cast body -nil
         if body == nil then
             return nil, Parser.newError(src, "expected lambda expression body here")
         end
@@ -1202,6 +1221,7 @@ function Parser.parseExpression(src, negate)
         if cerr ~= nil then
             return nil, cerr
         end
+        ---@cast condition -nil
         if condition == nil then
             return nil, Parser.newError(src, "expected condition expression here")
         end
@@ -1212,6 +1232,7 @@ function Parser.parseExpression(src, negate)
         if pperr ~= nil then
             return nil, pperr
         end
+        ---@cast positive -nil
         if positive == nil then
             return nil, Parser.newError(src, "expected positive branch expression here")
         end
@@ -1222,6 +1243,7 @@ function Parser.parseExpression(src, negate)
         if nerr ~= nil then
             return nil, nerr
         end
+        ---@cast negative -nil
         if negative == nil then
             return nil, Parser.newError(src, "expected negative branch expression here")
         end
@@ -1256,6 +1278,7 @@ function Parser.parseExpression(src, negate)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast value -nil
             if value == nil then
                 return nil, Parser.newError(src, "expected function body here")
             end
@@ -1299,6 +1322,7 @@ function Parser.parseExpression(src, negate)
         if nerr ~= nil then
             return nil, nerr
         end
+        ---@cast nested -nil
         if nested == nil then
             return nil, Parser.newError(src, "expected expression here")
         end
@@ -1320,6 +1344,7 @@ function Parser.parseExpression(src, negate)
         if cerr ~= nil then
             return nil, cerr
         end
+        ---@cast condition -nil
         if condition == nil then
             return nil, Parser.newError(src, "expected select condition expression here")
         end
@@ -1339,6 +1364,7 @@ function Parser.parseExpression(src, negate)
             if perr ~= nil then
                 return nil, perr
             end
+            ---@cast pat -nil
             if pat == nil then
                 return nil, Parser.newError(src, "expected pattern here")
             end
@@ -1351,6 +1377,7 @@ function Parser.parseExpression(src, negate)
             if eerr ~= nil then
                 return nil, eerr
             end
+            ---@cast expr -nil
             if expr == nil then
                 return nil, Parser.newError(src, "expected case expression here")
             end
@@ -1404,6 +1431,7 @@ function Parser.parseExpression(src, negate)
             if eerr ~= nil then
                 return nil, eerr
             end
+            ---@cast expr -nil
             if expr == nil then
                 return nil, Parser.newError(src, "expected record field value expression here")
             end
@@ -1440,6 +1468,7 @@ function Parser.parseExpression(src, negate)
             if eerr ~= nil then
                 return nil, eerr
             end
+            ---@cast expr -nil
             if expr == nil then
                 return nil, Parser.newError(src, "expected expression here")
             end
@@ -1489,6 +1518,7 @@ function Parser.finishParseExpression(src, expr, negate)
         if err ~= nil then
             return nil, err
         end
+        ---@cast final -nil
         if final == nil then
             return nil, Parser.newError(src,
                 "expected second operand expression of binary expression here")
@@ -1527,6 +1557,7 @@ function Parser.finishParseExpression(src, expr, negate)
             if ierr ~= nil then
                 return nil, ierr
             end
+            ---@cast item -nil
             if item == nil then
                 return nil, Parser.newError(src, "expected function argument expression here")
             end
@@ -1592,6 +1623,7 @@ function Parser.parseDataOption(src)
             if err ~= nil then
                 return nil, err
             end
+            ---@cast t -nil
             if t == nil then
                 return nil, Parser.newError(src, "expected option value type here")
             end
@@ -1989,6 +2021,7 @@ function Parser.parseModule(src)
             errors[#errors + 1] = err
             Parser.skipToNextStatement(src)
         end
+        ---@cast imp -nil
         if imp == nil then
             break
         end

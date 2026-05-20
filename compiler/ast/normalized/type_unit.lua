@@ -1,5 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
-local TNative = require("compiler.ast.typed.type_native").TNative
+local TyNative = require("compiler.ast.typed.type_native").TyNative
 local NarBaseBasicsUnit = require("compiler.common.builtins").NarBaseBasicsUnit
 
 ---@class NTUnit : NormType
@@ -29,7 +29,7 @@ end
 ---@return TypedType|nil t
 ---@return string|nil err
 function NTUnit:annotate(ctx, params, source, placeholders)
-    return self:setSuccessor(TNative.new(self.location, NarBaseBasicsUnit, nil))
+    return self:setSuccessor(TyNative.new(self.location, NarBaseBasicsUnit, nil))
 end
 
 return { NTUnit = NTUnit }

@@ -95,6 +95,7 @@ function NRecord:annotate(ctx, typeParams, modules, typedModules, moduleName, st
         if err ~= nil then
             return nil, err
         end
+        ---@cast value -nil
         fields[i] = TyRecordField.new(ctx, self.location, f.name, value)
     end
     return self:setSuccessor(TyRecord.new(ctx, self.location, fields))

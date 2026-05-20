@@ -1,6 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TFunc = require("compiler.ast.typed.type_func").TFunc
+local TyFunc = require("compiler.ast.typed.type_func").TyFunc
 local bytecode = require("compiler.bytecode.op")
 
 ---@class TyApply : TypedExpression
@@ -55,6 +55,7 @@ function TyApply:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, arg in ipairs(self.args) do
         err = arg:mapTypes(subst)
@@ -88,17 +89,22 @@ function TyApply:appendEquations(eqs, loc, localDefs, ctx, stack)
     for i, a in ipairs(self.args) do
         paramTypes[i] = a:getType()
     end
-    local funcType = TFunc.new(self.location, paramTypes, self.type_)
+    local funcType = TyFunc.new(self.location, paramTypes, self.type_)
     eqs[#eqs + 1] = newEquation(self, self.func:getType(), funcType)
     local newEqs, err = self.func:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast newEqs -nil
     for _, arg in ipairs(self.args) do
-        newEqs, err = arg:appendEquations(newEqs, loc, localDefs, ctx, stack)
+        ---@type Equation[]|nil
+        local nextEqs
+        nextEqs, err = arg:appendEquations(newEqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast nextEqs -nil
+        newEqs = nextEqs
     end
     return newEqs, nil
 end

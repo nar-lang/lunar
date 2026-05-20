@@ -12,7 +12,7 @@ local binaryMod = require("compiler.bytecode.binary")
 ---@param location Location
 ---@param name QualifiedIdentifier
 ---@param dependencies table<QualifiedIdentifier, Identifier[]>
----@param definitions TypedDefinition[]
+---@param definitions TypedDefinition[]|nil
 ---@return TypedModule
 function TypedModule.new(location, name, dependencies, definitions)
     return setmetatable({

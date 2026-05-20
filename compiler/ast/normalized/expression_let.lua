@@ -102,16 +102,19 @@ function NLet:annotate(ctx, typeParams, modules, typedModules, moduleName, stack
     if err ~= nil then
         return nil, err
     end
+    ---@cast pattern -nil
     local value, verr = self.value:annotate(
         ctx, localTypeParams, modules, typedModules, moduleName, stack)
     if verr ~= nil then
         return nil, verr
     end
+    ---@cast value -nil
     local body, berr = self.nested:annotate(
         ctx, localTypeParams, modules, typedModules, moduleName, stack)
     if berr ~= nil then
         return nil, berr
     end
+    ---@cast body -nil
     return self:setSuccessor(TyLet.new(ctx, self.location, pattern, value, body))
 end
 

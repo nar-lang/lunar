@@ -64,7 +64,7 @@ local function specializeRowByAnything(row)
     return nil, false, "impossible case"
 end
 
----@param ctor DataOption
+---@param ctor TyDataOption
 ---@return fun(row: SimplePattern[]): SimplePattern[]|nil, boolean, string|nil
 local function specializeRowByCtor(ctor)
     return function(row)
@@ -135,9 +135,9 @@ local function mapIfError(f, arr)
 end
 
 ---@param matrix SimplePattern[][]
----@return table<DataOptionIdentifier, TData>|nil
+---@return table<DataOptionIdentifier, TyData>|nil
 local function collectCtors(matrix)
-    ---@type table<DataOptionIdentifier, TData>
+    ---@type table<DataOptionIdentifier, TyData>
     local ctors = {}
     for _, row in ipairs(matrix) do
         if row == nil then
@@ -152,8 +152,8 @@ local function collectCtors(matrix)
     return ctors
 end
 
----@param ctors table<DataOptionIdentifier, TData>
----@return TData|nil
+---@param ctors table<DataOptionIdentifier, TyData>
+---@return TyData|nil
 local function firstCtor(ctors)
     local keys = {}
     for k in pairs(ctors) do keys[#keys + 1] = k end
@@ -165,7 +165,7 @@ local function firstCtor(ctors)
 end
 
 ---@param matrix SimplePattern[][]
----@return DataOption[]|nil, boolean
+---@return TyDataOption[]|nil, boolean
 local function isComplete(matrix)
     local ctors = collectCtors(matrix)
     if ctors == nil then
@@ -200,24 +200,29 @@ local function isUseful(matrix, vector)
         if err ~= nil then
             return false, err
         end
+        ---@cast option -nil
         local patterns, perr = mapIfError(specializeRowByCtor(option), matrix)
         if perr ~= nil then
             return false, perr
         end
+        ---@cast patterns -nil
         return isUseful(patterns, concat(first.args or {}, tail(vector, 2)))
     elseif isAnything(first) then
         local alts, ok = isComplete(matrix)
         if ok then
+            ---@cast alts -nil
             for _, c in ipairs(alts) do
                 local patterns, perr = mapIfError(specializeRowByCtor(c), matrix)
                 if perr ~= nil then
                     return false, perr
                 end
+                ---@cast patterns -nil
                 local useful, uerr = isUseful(patterns,
                     concat(repeatAnything(#(c.values or {})), tail(vector, 2)))
                 if uerr ~= nil then
                     return false, uerr
                 end
+                ---@cast useful -nil
                 if useful then
                     return true, nil
                 end
@@ -228,6 +233,7 @@ local function isUseful(matrix, vector)
             if perr ~= nil then
                 return false, perr
             end
+            ---@cast patterns -nil
             return isUseful(patterns, tail(vector, 2))
         end
     elseif isLiteral(first) then
@@ -236,6 +242,7 @@ local function isUseful(matrix, vector)
         if perr ~= nil then
             return false, perr
         end
+        ---@cast patterns -nil
         return isUseful(patterns, tail(vector, 2))
     end
     return false, "impossible case"
@@ -257,6 +264,7 @@ local function toNonRedundantRows(patterns)
         if err ~= nil then
             return nil, nil, err
         end
+        ---@cast useful -nil
         if useful then
             matrix[#matrix + 1] = row
         else
@@ -266,9 +274,9 @@ local function toNonRedundantRows(patterns)
     return matrix, redundant, nil
 end
 
----@param union TData
----@param ctors table<DataOptionIdentifier, TData>
----@return fun(alt: DataOption): SimplePattern|nil, boolean
+---@param union TyData
+---@param ctors table<DataOptionIdentifier, TyData>
+---@return fun(alt: TyDataOption): SimplePattern|nil, boolean
 local function isMissing(union, ctors)
     return function(alt)
         if ctors[alt.name] ~= nil then
@@ -278,8 +286,8 @@ local function isMissing(union, ctors)
     end
 end
 
----@param union TData
----@param alt DataOption
+---@param union TyData
+---@param alt TyDataOption
 ---@param patterns SimplePattern[]
 ---@return SimplePattern[]
 local function recoverCtor(union, alt, patterns)
@@ -313,20 +321,28 @@ local function isExhaustive(matrix, n)
         if perr ~= nil then
             return {}, perr
         end
+        ---@cast patterns -nil
         local exhaustive, eerr = isExhaustive(patterns, n - 1)
         if eerr ~= nil then
             return {}, eerr
         end
+        ---@cast exhaustive -nil
         ---@type SimplePattern[][]
         local result = {}
         for _, row in ipairs(exhaustive) do
+            ---@type SimplePattern[]
             local r = { SimpleAnything.new() }
             for _, v in ipairs(row) do r[#r + 1] = v end
             result[#result + 1] = r
         end
         return result, nil
     end
+    ---@cast ctors -nil
     local alts = firstCtor(ctors)
+    if alts == nil then
+        return {}, "no constructors"
+    end
+    ---@cast alts TyData
     local altList = alts.options
     local numAlts = #altList
     if numSeen < numAlts then
@@ -334,10 +350,12 @@ local function isExhaustive(matrix, n)
         if perr ~= nil then
             return {}, perr
         end
+        ---@cast patterns -nil
         local exhaustive, eerr = isExhaustive(patterns, n - 1)
         if eerr ~= nil then
             return {}, eerr
         end
+        ---@cast exhaustive -nil
         local missing = isMissing(alts, ctors)
         ---@type SimplePattern[]
         local rest = {}
@@ -369,10 +387,12 @@ local function isExhaustive(matrix, n)
             if perr ~= nil then
                 return {}, perr
             end
+            ---@cast patterns -nil
             local mx, mxerr = isExhaustive(patterns, #(alt.values or {}) + n - 1)
             if mxerr ~= nil then
                 return {}, mxerr
             end
+            ---@cast mx -nil
             for i, row in ipairs(mx) do
                 local prefixed = recoverCtor(alts, alt, row)
                 for _, v in ipairs(row) do prefixed[#prefixed + 1] = v end
@@ -393,6 +413,7 @@ local function checkPatterns(patterns)
     if err ~= nil then
         return err
     end
+    ---@cast matrix -nil
     if #redundant > 0 then
         return "pattern matching is redundant"
     end
@@ -400,6 +421,7 @@ local function checkPatterns(patterns)
     if eerr ~= nil then
         return eerr
     end
+    ---@cast missingPatterns -nil
     if #missingPatterns > 0 then
         local sb = { "pattern matching is not exhaustive, missing patterns: " }
         for _, p in ipairs(missingPatterns) do

@@ -96,7 +96,7 @@ end
 ---@param modules table<QualifiedIdentifier, NormModule>
 ---@param typedModules table<QualifiedIdentifier, TypedModule>
 ---@param moduleName QualifiedIdentifier
----@param stack TypedDefinition[]
+---@param stack TypedDefinition[]|nil
 ---@return TypedDefinition|nil def
 ---@return string|nil err
 function NormDefinition:annotate(modules, typedModules, moduleName, stack)
@@ -120,6 +120,7 @@ function NormDefinition:annotate(modules, typedModules, moduleName, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast annotatedDeclaredType -nil
     typedDef:setDeclaredType(annotatedDeclaredType)
 
     ---@type TypedPattern[]
@@ -130,6 +131,7 @@ function NormDefinition:annotate(modules, typedModules, moduleName, stack)
         if perr ~= nil then
             return nil, perr
         end
+        ---@cast tp -nil
         params[i] = tp
     end
     typedDef:setParams(params)
@@ -141,6 +143,7 @@ function NormDefinition:annotate(modules, typedModules, moduleName, stack)
         if berr ~= nil then
             return nil, berr
         end
+        ---@cast body -nil
         typedDef:setExpression(body)
     end
     stack[#stack] = nil

@@ -1,43 +1,43 @@
 local TypedType = require("compiler.ast.typed.type").TypedType
 local newEquationBestLoc = require("compiler.ast.typed.equation").newEquationBestLoc
 
----@class TFunc : TypedType
+---@class TyFunc : TypedType
 ---@field kind "TFunc"
 ---@field location Location
 ---@field params TypedType[]
 ---@field return_ TypedType
-local TFunc = setmetatable({}, { __index = TypedType })
-TFunc.__index = TFunc
+local TyFunc = setmetatable({}, { __index = TypedType })
+TyFunc.__index = TyFunc
 
 ---@param loc Location
 ---@param params TypedType[]|nil
 ---@param ret TypedType
----@return TFunc
-function TFunc.new(loc, params, ret)
+---@return TyFunc
+function TyFunc.new(loc, params, ret)
     return setmetatable({
         kind = "TFunc",
         location = loc,
         params = params or {},
         return_ = ret,
-    }, TFunc)
+    }, TyFunc)
 end
 
 ---@param ctx SolvingContext
 ---@param ubMap table<integer, integer>
----@return TFunc
-function TFunc:makeUnique(ctx, ubMap)
+---@return TyFunc
+function TyFunc:makeUnique(ctx, ubMap)
     ---@type TypedType[]
     local ps = {}
     for i, p in ipairs(self.params) do
         ps[i] = p:makeUnique(ctx, ubMap)
     end
-    return TFunc.new(self.location, ps, self.return_:makeUnique(ctx, ubMap))
+    return TyFunc.new(self.location, ps, self.return_:makeUnique(ctx, ubMap))
 end
 
 ---Pad/balance the function shape (Curry by reshape).
 ---@param sz integer
----@return TFunc
-function TFunc:balance(sz)
+---@return TyFunc
+function TyFunc:balance(sz)
     if #self.params == sz then
         return self
     end
@@ -51,17 +51,19 @@ function TFunc:balance(sz)
     for i = sz + 1, #self.params do
         tail[i - sz] = self.params[i]
     end
-    return TFunc.new(self.location, head, TFunc.new(self.location, tail, self.return_))
+    return TyFunc.new(self.location, head, TyFunc.new(self.location, tail, self.return_))
 end
 
 ---@param other TypedType
 ---@param loc Location
 ---@return Equation[]|nil eqs
 ---@return string|nil err
-function TFunc:merge(other, loc)
+function TyFunc:merge(other, loc)
     if other == nil or other.kind ~= "TFunc" then
-        return nil, string.format("cannot match %s and %s", other:code(""), self:code(""))
+        local otherCode = other ~= nil and other:code("") or "nil"
+        return nil, string.format("cannot match %s and %s", otherCode, self:code(""))
     end
+    ---@cast other TyFunc
     local t1 = self
     local t2 = other
     if #t1.params < #t2.params then
@@ -81,18 +83,20 @@ end
 ---@param subst table<integer, TypedType>
 ---@return TypedType|nil t
 ---@return string|nil err
-function TFunc:mapTo(subst)
+function TyFunc:mapTo(subst)
     for i, p in ipairs(self.params) do
         local x, err = p:mapTo(subst)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         self.params[i] = x
     end
     local r, err = self.return_:mapTo(subst)
     if err ~= nil then
         return nil, err
     end
+    ---@cast r -nil
     self.return_ = r
     return self, nil
 end
@@ -100,10 +104,11 @@ end
 ---@param other TypedType
 ---@param req table<FullIdentifier, true>|nil
 ---@return boolean
-function TFunc:equalsTo(other, req)
+function TyFunc:equalsTo(other, req)
     if other == nil or other.kind ~= "TFunc" then
         return false
     end
+    ---@cast other TyFunc
     if #self.params ~= #other.params then
         return false
     end
@@ -117,7 +122,7 @@ end
 
 ---@param currentModule QualifiedIdentifier|""
 ---@return string
-function TFunc:code(currentModule)
+function TyFunc:code(currentModule)
     local parts = {}
     for _, p in ipairs(self.params) do
         parts[#parts + 1] = p:code("")
@@ -125,4 +130,4 @@ function TFunc:code(currentModule)
     return string.format("(%s): %s", table.concat(parts, ", "), self.return_:code(""))
 end
 
-return { TFunc = TFunc }
+return { TyFunc = TyFunc }

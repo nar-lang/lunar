@@ -1,5 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
-local TRecord = require("compiler.ast.typed.type_record").TRecord
+local TyRecordType = require("compiler.ast.typed.type_record").TyRecordType
 
 ---@class NTRecord : NormType
 ---@field kind "NTRecord"
@@ -46,9 +46,10 @@ function NTRecord:annotate(ctx, params, source, placeholders)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         fields[n] = x
     end
-    return self:setSuccessor(TRecord.new(self.location, fields, false))
+    return self:setSuccessor(TyRecordType.new(self.location, fields, false))
 end
 
 return { NTRecord = NTRecord }

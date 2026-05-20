@@ -99,6 +99,7 @@ local function getAnnotatedGlobal(moduleName, definitionName, modules, typedModu
             if err ~= nil then
                 return newDef, err
             end
+            ---@cast newDef -nil
             typedModule:addDefinition(newDef)
             def = newDef
         end

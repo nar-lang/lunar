@@ -62,6 +62,7 @@ function NGlobal:annotate(ctx, typeParams, modules, typedModules, moduleName, st
     if err ~= nil then
         return nil, err
     end
+    ---@cast targetDef -nil
     return self:setSuccessor(TyGlobal.new(
         ctx, self.location, self.moduleName, self.definitionName, targetDef))
 end

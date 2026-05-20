@@ -1,5 +1,7 @@
 ---@class ConstValue
 ---@field kind "CChar"|"CInt"|"CFloat"|"CString"|"CUnit"
+---@field equals fun(self: ConstValue, other: ConstValue): boolean
+---@field appendBytecode fun(self: ConstValue, stackKind: StackKind, loc: Location, ops: integer[], locations: integer[][], binary: Binary, hash: BinaryHash): integer[], integer[][]
 
 local bytecode = require("compiler.bytecode.op")
 

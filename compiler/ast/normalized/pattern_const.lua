@@ -49,6 +49,7 @@ function NPConst:annotate(ctx, typeParams, modules, typedModules, moduleName, ty
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPConst.new(ctx, self.location, declared, self.value))
 end
 

@@ -60,10 +60,12 @@ function NPAlias:annotate(ctx, typeParams, modules, typedModules, moduleName, ty
     if err ~= nil then
         return nil, err
     end
+    ---@cast nested -nil
     local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPAlias.new(ctx, self.location, declared, self.alias, nested))
 end
 

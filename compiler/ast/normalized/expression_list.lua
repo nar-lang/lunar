@@ -74,6 +74,7 @@ function NList:annotate(ctx, typeParams, modules, typedModules, moduleName, stac
         if err ~= nil then
             return nil, err
         end
+        ---@cast it -nil
         items[i] = it
     end
     return self:setSuccessor(TyList.new(ctx, self.location, items))

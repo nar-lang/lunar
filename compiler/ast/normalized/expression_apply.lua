@@ -80,6 +80,7 @@ function NApply:annotate(ctx, typeParams, modules, typedModules, moduleName, sta
     if err ~= nil then
         return nil, err
     end
+    ---@cast fn -nil
     ---@type TypedExpression[]
     local args = {}
     for i, x in ipairs(self.args) do
@@ -87,12 +88,14 @@ function NApply:annotate(ctx, typeParams, modules, typedModules, moduleName, sta
         if err2 ~= nil then
             return nil, err2
         end
+        ---@cast a -nil
         args[i] = a
     end
     local apply, perr = TyApply.new(ctx, self.location, fn, args)
     if perr ~= nil then
         return nil, perr
     end
+    ---@cast apply -nil
     return self:setSuccessor(apply)
 end
 

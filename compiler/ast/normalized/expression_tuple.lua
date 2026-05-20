@@ -74,6 +74,7 @@ function NTuple:annotate(ctx, typeParams, modules, typedModules, moduleName, sta
         if err ~= nil then
             return nil, err
         end
+        ---@cast it -nil
         items[i] = it
     end
     return self:setSuccessor(TyTuple.new(ctx, self.location, items))

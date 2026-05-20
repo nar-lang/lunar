@@ -2,8 +2,8 @@ local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
 local SimpleLiteral = require("compiler.ast.typed.simple_pattern").SimpleLiteral
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
-local TData = require("compiler.ast.typed.type_data").TData
-local DataOption = require("compiler.ast.typed.type_data").DataOption
+local TyData = require("compiler.ast.typed.type_data").TyData
+local TyDataOption = require("compiler.ast.typed.type_data").TyDataOption
 local bytecode = require("compiler.bytecode.op")
 
 ---@class TyPConst : TypedPattern
@@ -35,7 +35,7 @@ end
 ---@return SimplePattern
 function TyPConst:simplify()
     if self.value.kind == "CUnit" then
-        local union = TData.new(self.location, "!!Unit", nil, { DataOption.new("Only", nil) })
+        local union = TyData.new(self.location, "!!Unit", nil, { TyDataOption.new("Only", nil) })
         return SimpleConstructor.new(union, "Only", nil)
     end
     return SimpleLiteral.new(self.value)
@@ -48,6 +48,7 @@ function TyPConst:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     return nil
 end
@@ -57,12 +58,16 @@ end
 local function constCode(v)
     local k = v.kind
     if k == "CInt" then
+        ---@cast v CInt
         return string.format("%d", v.value)
     elseif k == "CFloat" then
+        ---@cast v CFloat
         return string.format("%f", v.value)
     elseif k == "CString" then
+        ---@cast v CString
         return string.format('"%s"', v.value)
     elseif k == "CChar" then
+        ---@cast v CChar
         return string.format("'%s'", v.value)
     elseif k == "CUnit" then
         return "()"

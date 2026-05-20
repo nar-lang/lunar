@@ -47,4 +47,13 @@ function TypedExpression:code(currentModule)
     error("abstract method 'code' not implemented for kind=" .. tostring(self.kind), 2)
 end
 
+---@param ops integer[]
+---@param locations integer[][]
+---@param binary Binary
+---@param hash BinaryHash
+---@return integer[], integer[][]
+function TypedExpression:appendBytecode(ops, locations, binary, hash)
+    error("abstract method 'appendBytecode' not implemented for kind=" .. tostring(self.kind), 2)
+end
+
 return { TypedExpression = TypedExpression }

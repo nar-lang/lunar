@@ -52,6 +52,7 @@ function TyLet:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     err = self.pattern:mapTypes(subst)
     if err ~= nil then
@@ -86,15 +87,22 @@ function TyLet:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
-    newEqs, err = self.value:appendEquations(newEqs, loc, localDefs, ctx, stack)
+    ---@cast newEqs -nil
+    ---@type Equation[]|nil
+    local nextEqs
+    nextEqs, err = self.value:appendEquations(newEqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast nextEqs -nil
+    newEqs = nextEqs
     newEqs[#newEqs + 1] = newEquation(self, self.pattern:getType(), self.value:getType())
-    newEqs, err = self.body:appendEquations(newEqs, loc, localDefs, ctx, stack)
+    nextEqs, err = self.body:appendEquations(newEqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast nextEqs -nil
+    newEqs = nextEqs
     return newEqs, nil
 end
 

@@ -66,6 +66,7 @@ function NPOption:annotate(ctx, typeParams, modules, typedModules, moduleName, t
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast def -nil
     ---@type TypedPattern[]
     local args = {}
     for i, x in ipairs(self.values) do
@@ -74,16 +75,19 @@ function NPOption:annotate(ctx, typeParams, modules, typedModules, moduleName, t
         if aerr ~= nil then
             return nil, aerr
         end
+        ---@cast a -nil
         args[i] = a
     end
     local declared, dtErr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
     if dtErr ~= nil then
         return nil, dtErr
     end
+    ---@cast declared -nil
     local option, oerr = TyPOption.new(ctx, self.location, declared, def, args)
     if oerr ~= nil then
         return nil, oerr
     end
+    ---@cast option -nil
     return self:setSuccessor(option)
 end
 

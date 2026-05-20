@@ -65,15 +65,18 @@ function NPCons:annotate(ctx, typeParams, modules, typedModules, moduleName, typ
     if herr ~= nil then
         return nil, herr
     end
+    ---@cast head -nil
     local tail, terr = self.tail:annotate(
         ctx, typeParams, modules, typedModules, moduleName, typeMapSource, stack)
     if terr ~= nil then
         return nil, terr
     end
+    ---@cast tail -nil
     local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPCons.new(ctx, self.location, declared, head, tail))
 end
 

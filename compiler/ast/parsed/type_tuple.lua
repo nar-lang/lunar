@@ -39,6 +39,7 @@ function TTuple:normalize(modules, module, namedTypes)
         if err ~= nil then
             return nil, err
         end
+        ---@cast ni -nil
         items[i] = ni
     end
     return self:setSuccessor(NTTuple.new(self.location, items)), nil
@@ -55,6 +56,7 @@ function TTuple:applyArgs(params, loc)
         if err ~= nil then
             return nil, err
         end
+        ---@cast ni -nil
         items[i] = ni
     end
     return TTuple.new(loc, items), nil

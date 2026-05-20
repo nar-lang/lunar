@@ -1,6 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TRecord = require("compiler.ast.typed.type_record").TRecord
+local TyRecordType = require("compiler.ast.typed.type_record").TyRecordType
 local bytecode = require("compiler.bytecode.op")
 
 ---@class TyAccess : TypedExpression
@@ -41,6 +41,7 @@ function TyAccess:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     return self.record:mapTypes(subst)
 end
@@ -60,11 +61,12 @@ end
 ---@return string|nil err
 function TyAccess:appendEquations(eqs, loc, localDefs, ctx, stack)
     local fields = { [self.fieldName] = self.type_ }
-    eqs[#eqs + 1] = newEquation(self, TRecord.new(self.location, fields, true), self.record:getType())
+    eqs[#eqs + 1] = newEquation(self, TyRecordType.new(self.location, fields, true), self.record:getType())
     local newEqs, err = self.record:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast newEqs -nil
     return newEqs, nil
 end
 

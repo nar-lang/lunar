@@ -64,6 +64,7 @@ function POption:normalize(locals, modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nv -nil
         values[i] = nv
     end
     ---@type NormType|nil
@@ -73,6 +74,7 @@ function POption:normalize(locals, modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nType -nil
         declaredType = nType
     end
     return self:setSuccessor(NPOption.new(self.location, declaredType, mod.name, def.name, values)),

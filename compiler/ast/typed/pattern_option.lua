@@ -1,6 +1,6 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TFunc = require("compiler.ast.typed.type_func").TFunc
+local TyFunc = require("compiler.ast.typed.type_func").TyFunc
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
@@ -45,6 +45,7 @@ function TyPOption:name()
     if body == nil or body.kind ~= "TyConstructor" then
         error("Data option pattern should have a constructor definition.")
     end
+    ---@cast body TyConstructor
     return builtins.makeDataOptionIdentifier(body.dataName, body.optionName)
 end
 
@@ -55,8 +56,10 @@ function TyPOption:simplify()
     for i, x in ipairs(self.args) do
         args[i] = x:simplify()
     end
-    if self.type_ ~= nil and self.type_.kind == "TData" then
-        return SimpleConstructor.new(self.type_, self:name(), args)
+    local t = self.type_
+    if t ~= nil and t.kind == "TData" then
+        ---@cast t TyData
+        return SimpleConstructor.new(t, self:name(), args)
     end
     error("Data option pattern should have a data type.")
 end
@@ -68,6 +71,7 @@ function TyPOption:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, arg in ipairs(self.args) do
         err = arg:mapTypes(subst)
@@ -110,6 +114,7 @@ function TyPOption:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast defType -nil
     if #self.args == 0 then
         eqs[#eqs + 1] = newEquation(self, self.type_, defType)
     else
@@ -119,13 +124,14 @@ function TyPOption:appendEquations(eqs, loc, localDefs, ctx, stack)
             argTypes[i] = x:getType()
         end
         eqs[#eqs + 1] = newEquation(self,
-            TFunc.new(self.location, argTypes, self.type_),
+            TyFunc.new(self.location, argTypes, self.type_),
             defType)
         for _, arg in ipairs(self.args) do
             local newEqs, aerr = arg:appendEquations(eqs, loc, localDefs, ctx, stack)
             if aerr ~= nil then
                 return nil, aerr
             end
+            ---@cast newEqs -nil
             eqs = newEqs
         end
     end

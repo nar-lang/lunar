@@ -1,8 +1,8 @@
 local TypedPattern = require("compiler.ast.typed.pattern").TypedPattern
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TNative = require("compiler.ast.typed.type_native").TNative
-local TData = require("compiler.ast.typed.type_data").TData
-local DataOption = require("compiler.ast.typed.type_data").DataOption
+local TyNative = require("compiler.ast.typed.type_native").TyNative
+local TyData = require("compiler.ast.typed.type_data").TyData
+local TyDataOption = require("compiler.ast.typed.type_data").TyDataOption
 local SimpleConstructor = require("compiler.ast.typed.simple_pattern").SimpleConstructor
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
@@ -41,6 +41,7 @@ end
 ---@return SimpleConstructor
 function TyPList:simplify()
     local ctor = "Nil"
+    ---@type SimplePattern[]|nil
     local nested = nil
     if #self.items > 0 then
         local rest = {}
@@ -53,9 +54,9 @@ function TyPList:simplify()
         nested = { item }
     end
     local a = self.ctx:newTypeAnnotation(self)
-    local union = TData.new(self.location, "!!list", nil, {
-        DataOption.new("Nil", nil),
-        DataOption.new("Cons", { a, TNative.new(self.location, builtins.NarBaseListList, { a }) }),
+    local union = TyData.new(self.location, "!!list", nil, {
+        TyDataOption.new("Nil", nil),
+        TyDataOption.new("Cons", { a, TyNative.new(self.location, builtins.NarBaseListList, { a }) }),
     })
     return SimpleConstructor.new(union, ctor, nested)
 end
@@ -67,6 +68,7 @@ function TyPList:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, item in ipairs(self.items) do
         err = item:mapTypes(subst)
@@ -102,13 +104,14 @@ function TyPList:appendEquations(eqs, loc, localDefs, ctx, stack)
     for _, item in ipairs(self.items) do
         eqs[#eqs + 1] = newEquation(item, self.itemType, item:getType())
     end
-    local typeNative = TNative.new(self.location, builtins.NarBaseListList, { self.itemType })
+    local typeNative = TyNative.new(self.location, builtins.NarBaseListList, { self.itemType })
     eqs[#eqs + 1] = newEquation(self, self.type_, typeNative)
     for _, item in ipairs(self.items) do
         local newEqs, err = item:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     if self.declaredType ~= nil then

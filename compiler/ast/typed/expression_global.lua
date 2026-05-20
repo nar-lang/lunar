@@ -44,6 +44,7 @@ function TyGlobal:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     return nil
 end
@@ -73,6 +74,7 @@ function TyGlobal:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast defType -nil
     eqs[#eqs + 1] = newEquation(self, self.type_, defType)
     return eqs, nil
 end

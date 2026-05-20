@@ -1,6 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TNative = require("compiler.ast.typed.type_native").TNative
+local TyNative = require("compiler.ast.typed.type_native").TyNative
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
 
@@ -48,6 +48,7 @@ function TyList:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, item in ipairs(self.items) do
         err = item:mapTypes(subst)
@@ -79,13 +80,14 @@ function TyList:appendEquations(eqs, loc, localDefs, ctx, stack)
     for _, item in ipairs(self.items) do
         eqs[#eqs + 1] = newEquation(self, self.itemType, item:getType())
     end
-    local typeList = TNative.new(self.location, builtins.NarBaseListList, { self.itemType })
+    local typeList = TyNative.new(self.location, builtins.NarBaseListList, { self.itemType })
     eqs[#eqs + 1] = newEquation(self, self.type_, typeList)
     for _, item in ipairs(self.items) do
         local newEqs, err = item:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     return eqs, nil

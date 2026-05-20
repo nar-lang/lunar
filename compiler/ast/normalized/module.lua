@@ -152,6 +152,7 @@ function NormModule:annotate(modules, typedModules)
         if err ~= nil then
             errors[#errors + 1] = err
         else
+            ---@cast typedDef -nil
             o:addDefinition(typedDef)
         end
     end

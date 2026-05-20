@@ -79,6 +79,7 @@ function TySelect:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     err = self.condition:mapTypes(subst)
     if err ~= nil then
@@ -121,20 +122,27 @@ function TySelect:appendEquations(eqs, loc, localDefs, ctx, stack)
     if err ~= nil then
         return nil, err
     end
+    ---@cast newEqs -nil
     eqs = newEqs
     for _, cs in ipairs(self.cases) do
         eqs[#eqs + 1] = newEquation(self, self.condition:getType(), cs.pattern:getType())
         eqs[#eqs + 1] = newEquation(self, self.type_, cs.expression:getType())
     end
     for _, cs in ipairs(self.cases) do
-        eqs, err = cs.pattern:appendEquations(eqs, loc, localDefs, ctx, stack)
+        ---@type Equation[]|nil
+        local nextEqs
+        nextEqs, err = cs.pattern:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
-        eqs, err = cs.expression:appendEquations(eqs, loc, localDefs, ctx, stack)
+        ---@cast nextEqs -nil
+        eqs = nextEqs
+        nextEqs, err = cs.expression:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast nextEqs -nil
+        eqs = nextEqs
     end
     return eqs, nil
 end

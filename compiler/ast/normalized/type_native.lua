@@ -1,5 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
-local TNative = require("compiler.ast.typed.type_native").TNative
+local TyNative = require("compiler.ast.typed.type_native").TyNative
 
 ---@class NTNative : NormType
 ---@field kind "NTNative"
@@ -49,9 +49,10 @@ function NTNative:annotate(ctx, params, source, placeholders)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         args[i] = x
     end
-    return self:setSuccessor(TNative.new(self.location, self.name, args))
+    return self:setSuccessor(TyNative.new(self.location, self.name, args))
 end
 
 return { NTNative = NTNative }

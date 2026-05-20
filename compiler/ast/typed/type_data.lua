@@ -1,75 +1,78 @@
 local TypedType = require("compiler.ast.typed.type").TypedType
 local newEquationBestLoc = require("compiler.ast.typed.equation").newEquationBestLoc
 
----@class DataOption
+---@class TyDataOption
 ---@field name DataOptionIdentifier
 ---@field values TypedType[]
-local DataOption = {}
-DataOption.__index = DataOption
+local TyDataOption = {}
+TyDataOption.__index = TyDataOption
 
 ---@param name DataOptionIdentifier
 ---@param values TypedType[]|nil
----@return DataOption
-function DataOption.new(name, values)
+---@return TyDataOption
+function TyDataOption.new(name, values)
     return setmetatable({
         name = name,
         values = values or {},
-    }, DataOption)
+    }, TyDataOption)
 end
 
----@class TData : TypedType
+---@class TyData : TypedType
 ---@field kind "TData"
 ---@field location Location
 ---@field name FullIdentifier
 ---@field args TypedType[]
----@field options DataOption[]
-local TData = setmetatable({}, { __index = TypedType })
-TData.__index = TData
+---@field options TyDataOption[]
+local TyData = setmetatable({}, { __index = TypedType })
+TyData.__index = TyData
 
 ---@param loc Location
 ---@param name FullIdentifier
 ---@param args TypedType[]|nil
----@param options DataOption[]|nil
----@return TData
-function TData.new(loc, name, args, options)
+---@param options TyDataOption[]|nil
+---@return TyData
+function TyData.new(loc, name, args, options)
     return setmetatable({
         kind = "TData",
         location = loc,
         name = name,
         args = args or {},
         options = options or {},
-    }, TData)
+    }, TyData)
 end
 
----@param options DataOption[]
-function TData:setOptions(options)
+---@param options TyDataOption[]
+function TyData:setOptions(options)
     self.options = options or {}
 end
 
 ---@param ctx SolvingContext
 ---@param ubMap table<integer, integer>
----@return TData
-function TData:makeUnique(ctx, ubMap)
+---@return TyData
+function TyData:makeUnique(ctx, ubMap)
     ---@type TypedType[]
     local args = {}
     for i, a in ipairs(self.args) do
         args[i] = a:makeUnique(ctx, ubMap)
     end
-    return TData.new(self.location, self.name, args, self.options)
+    return TyData.new(self.location, self.name, args, self.options)
 end
 
 ---@param other TypedType
 ---@param loc Location
 ---@return Equation[]|nil eqs
 ---@return string|nil err
-function TData:merge(other, loc)
-    if other ~= nil and other.kind == "TData" and other.name == self.name and #self.args == #other.args then
-        ---@type Equation[]
-        local eqs = {}
-        for i, a in ipairs(self.args) do
-            eqs[#eqs + 1] = newEquationBestLoc(a, other.args[i], loc)
+function TyData:merge(other, loc)
+    if other ~= nil and other.kind == "TData" then
+        ---@cast other TyData
+        if other.name == self.name and #self.args == #other.args then
+            ---@type Equation[]
+            local eqs = {}
+            for i, a in ipairs(self.args) do
+                eqs[#eqs + 1] = newEquationBestLoc(a, other.args[i], loc)
+            end
+            return eqs, nil
         end
-        return eqs, nil
     end
     return nil, string.format("cannot match %s and %s", other:code(""), self:code(""))
 end
@@ -77,12 +80,13 @@ end
 ---@param subst table<integer, TypedType>
 ---@return TypedType|nil t
 ---@return string|nil err
-function TData:mapTo(subst)
+function TyData:mapTo(subst)
     for i, a in ipairs(self.args) do
         local x, err = a:mapTo(subst)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         self.args[i] = x
     end
     return self, nil
@@ -91,10 +95,11 @@ end
 ---@param other TypedType
 ---@param req table<FullIdentifier, true>|nil
 ---@return boolean
-function TData:equalsTo(other, req)
+function TyData:equalsTo(other, req)
     if other == nil or other.kind ~= "TData" then
         return false
     end
+    ---@cast other TyData
     if other.name ~= self.name then
         return false
     end
@@ -116,7 +121,7 @@ end
 
 ---@param currentModule QualifiedIdentifier|""
 ---@return string
-function TData:code(currentModule)
+function TyData:code(currentModule)
     local s = tostring(self.name)
     if currentModule ~= nil and currentModule ~= "" then
         local pref = currentModule .. "."
@@ -136,6 +141,6 @@ function TData:code(currentModule)
 end
 
 return {
-    TData = TData,
-    DataOption = DataOption,
+    TyData = TyData,
+    TyDataOption = TyDataOption,
 }

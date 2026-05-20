@@ -1,6 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TData = require("compiler.ast.typed.type_data").TData
+local TyData = require("compiler.ast.typed.type_data").TyData
 local CString = require("compiler.ast.const").CString
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
@@ -11,7 +11,7 @@ local bytecode = require("compiler.bytecode.op")
 ---@field type_ TypedType
 ---@field dataName FullIdentifier
 ---@field optionName Identifier
----@field dataType TData|nil
+---@field dataType TyData|nil
 ---@field args TypedExpression[]
 local TyConstructor = setmetatable({}, { __index = TypedExpression })
 TyConstructor.__index = TyConstructor
@@ -20,7 +20,7 @@ TyConstructor.__index = TyConstructor
 ---@param loc Location
 ---@param dataName FullIdentifier
 ---@param optionName Identifier
----@param dataType TData|nil
+---@param dataType TyData|nil
 ---@param args TypedExpression[]
 ---@return TyConstructor
 function TyConstructor.new(ctx, loc, dataName, optionName, dataType, args)
@@ -55,6 +55,7 @@ function TyConstructor:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, arg in ipairs(self.args) do
         err = arg:mapTypes(subst)
@@ -67,9 +68,11 @@ function TyConstructor:mapTypes(subst)
         if derr ~= nil then
             return derr
         end
+        ---@cast xdt -nil
         if xdt == nil or xdt.kind ~= "TData" then
             return "failed to map data type"
         end
+        ---@cast xdt TyData
         self.dataType = xdt
     end
     return nil
@@ -99,9 +102,9 @@ end
 function TyConstructor:appendEquations(eqs, loc, localDefs, ctx, stack)
     local r
     if self.dataType == nil then
-        r = TData.new(self.location, self.dataName, nil, nil)
+        r = TyData.new(self.location, self.dataName, nil, nil)
     else
-        r = TData.new(self.location, self.dataName, self.dataType.args, self.dataType.options)
+        r = TyData.new(self.location, self.dataName, self.dataType.args, self.dataType.options)
     end
     eqs[#eqs + 1] = newEquation(self, self.type_, r)
     for _, a in ipairs(self.args) do
@@ -109,6 +112,7 @@ function TyConstructor:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     return eqs, nil

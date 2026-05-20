@@ -47,6 +47,7 @@ function PList:normalize(locals, modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nItem -nil
         items[i] = nItem
     end
     ---@type NormType|nil
@@ -56,6 +57,7 @@ function PList:normalize(locals, modules, module, normalizedModule)
         if err ~= nil then
             errors[#errors + 1] = err
         end
+        ---@cast nType -nil
         declaredType = nType
     end
     return self:setSuccessor(NPList.new(self.location, declaredType, items)),

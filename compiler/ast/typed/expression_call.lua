@@ -49,6 +49,7 @@ function TyCall:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     for _, arg in ipairs(self.args) do
         err = arg:mapTypes(subst)
@@ -82,6 +83,7 @@ function TyCall:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     return eqs, nil

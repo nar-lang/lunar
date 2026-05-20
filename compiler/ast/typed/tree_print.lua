@@ -548,9 +548,9 @@ end
 
 -- types ---------------------------------------------------------------------
 
----@param node TData
+---@param node TyData
 ---@param offset integer
-handlers.TData = function(node, offset)
+handlers.TyData = function(node, offset)
     local buf = {
         indent(offset) .. string.format(
             "TData(name=%s)\n", formatName(node.name)),
@@ -564,9 +564,9 @@ handlers.TData = function(node, offset)
     return table.concat(buf)
 end
 
----@param node TFunc
+---@param node TyFunc
 ---@param offset integer
-handlers.TFunc = function(node, offset)
+handlers.TyFunc = function(node, offset)
     local buf = { indent(offset) .. "TFunc()\n" }
     appendTypeChildren(buf, node.params, offset + 1)
     if node.return_ ~= nil then
@@ -575,9 +575,9 @@ handlers.TFunc = function(node, offset)
     return table.concat(buf)
 end
 
----@param node TNative
+---@param node TyNative
 ---@param offset integer
-handlers.TNative = function(node, offset)
+handlers.TyNative = function(node, offset)
     local buf = {
         indent(offset) .. string.format(
             "TNative(name=%s)\n", formatName(node.name)),
@@ -586,9 +586,9 @@ handlers.TNative = function(node, offset)
     return table.concat(buf)
 end
 
----@param node TRecord
+---@param node TyRecordType
 ---@param offset integer
-handlers.TRecord = function(node, offset)
+handlers.TyRecordType = function(node, offset)
     local buf = {
         indent(offset) .. string.format(
             "TRecord(mayHaveMoreFields=%s)\n", formatBool(node.mayHaveMoreFields)),
@@ -610,9 +610,9 @@ handlers.TRecord = function(node, offset)
     return table.concat(buf)
 end
 
----@param node TTuple
+---@param node TyTupleType
 ---@param offset integer
-handlers.TTuple = function(node, offset)
+handlers.TyTupleType = function(node, offset)
     local buf = { indent(offset) .. "TTuple()\n" }
     appendTypeChildren(buf, node.items, offset + 1)
     return table.concat(buf)

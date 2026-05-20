@@ -129,6 +129,7 @@ function NSelect:annotate(ctx, typeParams, modules, typedModules, moduleName, st
     if err ~= nil then
         return nil, err
     end
+    ---@cast condition -nil
     ---@type table[]
     local cases = {}
     for i, c in ipairs(self.cases) do
@@ -138,11 +139,13 @@ function NSelect:annotate(ctx, typeParams, modules, typedModules, moduleName, st
         if perr ~= nil then
             return nil, perr
         end
+        ---@cast pattern -nil
         local expr, eerr = c.expression:annotate(
             ctx, localTypeParams, modules, typedModules, moduleName, stack)
         if eerr ~= nil then
             return nil, eerr
         end
+        ---@cast expr -nil
         cases[i] = TySelectCase.new(c.location, pattern, expr)
     end
     return self:setSuccessor(TySelect.new(ctx, self.location, condition, cases))

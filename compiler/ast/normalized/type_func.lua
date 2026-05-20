@@ -1,5 +1,5 @@
 local NormType = require("compiler.ast.normalized.type").NormType
-local TFunc = require("compiler.ast.typed.type_func").TFunc
+local TyFunc = require("compiler.ast.typed.type_func").TyFunc
 
 ---@class NTFunc : NormType
 ---@field kind "NTFunc"
@@ -52,6 +52,7 @@ function NTFunc:annotate(ctx, params, source, placeholders)
         if err ~= nil then
             return nil, err
         end
+        ---@cast x -nil
         funcParams[i] = x
     end
     if self.return_ == nil then
@@ -61,7 +62,8 @@ function NTFunc:annotate(ctx, params, source, placeholders)
     if err ~= nil then
         return nil, err
     end
-    return self:setSuccessor(TFunc.new(self.location, funcParams, ret))
+    ---@cast ret -nil
+    return self:setSuccessor(TyFunc.new(self.location, funcParams, ret))
 end
 
 return { NTFunc = NTFunc }

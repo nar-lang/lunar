@@ -105,6 +105,7 @@ function NUpdate:annotate(ctx, typeParams, modules, typedModules, moduleName, st
         if err ~= nil then
             return nil, err
         end
+        ---@cast value -nil
         fields[i] = TyRecordField.new(ctx, f.location, f.name, value)
     end
     if self.moduleName ~= nil and self.moduleName ~= "" then
@@ -113,14 +114,17 @@ function NUpdate:annotate(ctx, typeParams, modules, typedModules, moduleName, st
         if err ~= nil then
             return nil, err
         end
+        ---@cast targetDef -nil
         return self:setSuccessor(TyUpdate.newGlobal(
             ctx, self.location, self.moduleName, self.recordName, targetDef, fields))
     end
     if self.target == nil then
         return nil, string.format("local variable `%s` not resolved", tostring(self.recordName))
     end
+    local successor = self.target.successor
+    ---@cast successor TypedPattern
     return self:setSuccessor(TyUpdate.newLocal(
-        ctx, self.location, self.recordName, self.target.successor, fields))
+        ctx, self.location, self.recordName, successor, fields))
 end
 
 return { NUpdate = NUpdate }

@@ -41,6 +41,7 @@ function TyPNamed:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     return nil
 end

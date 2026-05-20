@@ -3,7 +3,7 @@ local SolvingContext = require("compiler.ast.typed.solving_context").SolvingCont
 local equationMod = require("compiler.ast.typed.equation")
 local newEquation = equationMod.newEquation
 local appendUsefulEquations = equationMod.appendUsefulEquations
-local TFunc = require("compiler.ast.typed.type_func").TFunc
+local TyFunc = require("compiler.ast.typed.type_func").TyFunc
 local builtins = require("compiler.common.builtins")
 local bytecode = require("compiler.bytecode.op")
 local binaryMod = require("compiler.bytecode.binary")
@@ -73,7 +73,7 @@ function TypedDefinition:uniqueType(ctx, stack)
     return t:makeUnique(ctx, {}), nil
 end
 
----@param stack TypedDefinition[]
+---@param stack TypedDefinition[]|nil
 ---@return string|nil err
 function TypedDefinition:solveTypes(stack)
     stack = stack or {}
@@ -82,11 +82,13 @@ function TypedDefinition:solveTypes(stack)
     if err ~= nil then
         return err
     end
+    ---@cast eqs -nil
     eqs = appendUsefulEquations({}, eqs)
     eqs, err = self.ctx:insertAll(eqs)
     if err ~= nil then
         return err
     end
+    ---@cast eqs -nil
     local subst = self.ctx:subst()
     err = self:mapTypes(subst)
     if err ~= nil then
@@ -110,6 +112,7 @@ function TypedDefinition:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     if self.body == nil then
         return nil
@@ -134,7 +137,7 @@ function TypedDefinition:appendEquations(eqs, loc, localDefs, ctx, stack)
             for i, p in ipairs(self.params) do
                 paramTypes[i] = p:getType()
             end
-            defType = TFunc.new(self.location, paramTypes, defType)
+            defType = TyFunc.new(self.location, paramTypes, defType)
         end
         eqs[#eqs + 1] = newEquation(defType, self.type_, defType)
         if self.declaredType ~= nil then
@@ -146,6 +149,7 @@ function TypedDefinition:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     if self.body ~= nil then
@@ -153,6 +157,7 @@ function TypedDefinition:appendEquations(eqs, loc, localDefs, ctx, stack)
         if err ~= nil then
             return nil, err
         end
+        ---@cast newEqs -nil
         eqs = newEqs
     end
     return eqs, nil
@@ -200,11 +205,13 @@ function TypedDefinition:code(currentModule)
         params = "(" .. params .. ")"
     end
     local typeString = ""
-    if self.declaredType ~= nil then
-        if self.declaredType.kind == "TFunc" then
-            typeString = ": " .. self.declaredType.return_:code(currentModule)
+    local declaredType = self.declaredType
+    if declaredType ~= nil then
+        if declaredType.kind == "TFunc" then
+            ---@cast declaredType TyFunc
+            typeString = ": " .. declaredType.return_:code(currentModule)
         else
-            typeString = ": " .. self.declaredType:code(currentModule)
+            typeString = ": " .. declaredType:code(currentModule)
         end
     end
     if self.body == nil then
@@ -229,9 +236,17 @@ function TypedDefinition:bytecode(pathId, modName, binary, hash)
     ---@type integer[][]
     local locations = {}
 
-    if self.body.kind == "TyCall" and pathId == self.body.name then
+    local body = self.body
+    ---@cast body -nil
+    local isSelfCall = false
+    if body.kind == "TyCall" then
+        ---@cast body TyCall
+        isSelfCall = (pathId == body.name)
+    end
+    if isSelfCall then
+        ---@cast body TyCall
         ops, locations = bytecode.appendCall(
-            self.body.name, #self.body.args, self.body.location, ops, locations, binary, hash)
+            body.name, #body.args, body.location, ops, locations, binary, hash)
     else
         for i = #self.params, 1, -1 do
             local p = self.params[i]

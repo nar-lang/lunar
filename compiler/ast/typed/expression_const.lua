@@ -1,6 +1,6 @@
 local TypedExpression = require("compiler.ast.typed.expression").TypedExpression
 local newEquation = require("compiler.ast.typed.equation").newEquation
-local TNative = require("compiler.ast.typed.type_native").TNative
+local TyNative = require("compiler.ast.typed.type_native").TyNative
 local builtins = require("compiler.common.builtins")
 local CFloat = require("compiler.ast.const").CFloat
 local bytecode = require("compiler.bytecode.op")
@@ -13,15 +13,15 @@ local bytecode = require("compiler.bytecode.op")
 local function getConstType(ctx, cv, src)
     local k = cv.kind
     if k == "CChar" then
-        return TNative.new(src.location, builtins.NarBaseCharChar, nil)
+        return TyNative.new(src.location, builtins.NarBaseCharChar, nil)
     elseif k == "CInt" then
         return ctx:newAnnotatedConstraint(src, nil, "number")
     elseif k == "CFloat" then
-        return TNative.new(src.location, builtins.NarBaseMathFloat, nil)
+        return TyNative.new(src.location, builtins.NarBaseMathFloat, nil)
     elseif k == "CString" then
-        return TNative.new(src.location, builtins.NarBaseStringString, nil)
+        return TyNative.new(src.location, builtins.NarBaseStringString, nil)
     elseif k == "CUnit" then
-        return TNative.new(src.location, builtins.NarBaseBasicsUnit, nil)
+        return TyNative.new(src.location, builtins.NarBaseBasicsUnit, nil)
     end
     error("getConstType: switch not exhaustive for " .. tostring(k))
 end
@@ -31,12 +31,16 @@ end
 local function constCode(v)
     local k = v.kind
     if k == "CInt" then
+        ---@cast v CInt
         return string.format("%d", v.value)
     elseif k == "CFloat" then
+        ---@cast v CFloat
         return string.format("%f", v.value)
     elseif k == "CString" then
+        ---@cast v CString
         return string.format('"%s"', v.value)
     elseif k == "CChar" then
+        ---@cast v CChar
         return string.format("'%s'", v.value)
     elseif k == "CUnit" then
         return "()"
@@ -79,6 +83,7 @@ function TyConst:mapTypes(subst)
     if err ~= nil then
         return err
     end
+    ---@cast t -nil
     self.type_ = t
     return nil
 end
@@ -109,9 +114,13 @@ end
 function TyConst:appendBytecode(ops, locations, binary, hash)
     local v = self.value
     if v.kind == "CInt" then
-        if self.type_ ~= nil and self.type_.kind == "TNative"
-            and self.type_.name == builtins.NarBaseMathFloat then
-            v = CFloat.new(v.value)
+        ---@cast v CInt
+        local tt = self.type_
+        if tt ~= nil and tt.kind == "TNative" then
+            ---@cast tt TyNative
+            if tt.name == builtins.NarBaseMathFloat then
+                v = CFloat.new(v.value)
+            end
         end
     end
     return v:appendBytecode(bytecode.STACK_KIND_OBJECT, self.location, ops, locations, binary, hash)

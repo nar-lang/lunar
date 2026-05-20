@@ -63,12 +63,14 @@ function NPList:annotate(ctx, typeParams, modules, typedModules, moduleName, typ
         if err ~= nil then
             return nil, err
         end
+        ---@cast it -nil
         items[i] = it
     end
     local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     return self:setSuccessor(TyPList.new(ctx, self.location, declared, items))
 end
 

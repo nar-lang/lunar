@@ -41,6 +41,7 @@ function TRecord:normalize(modules, module, namedTypes)
         if err ~= nil then
             return nil, err
         end
+        ---@cast nv -nil
         fields[name] = nv
     end
     return self:setSuccessor(NTRecord.new(self.location, fields)), nil
@@ -57,6 +58,7 @@ function TRecord:applyArgs(params, loc)
         if err ~= nil then
             return nil, err
         end
+        ---@cast nf -nil
         fields[name] = nf
     end
     return TRecord.new(loc, fields), nil

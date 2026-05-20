@@ -47,6 +47,7 @@ function TypeGroup:specialize(type_, loc)
     if self.constraint == CONSTRAINT_NUMBER then
         local isOk = false
         if type_.kind == "TNative" then
+            ---@cast type_ TyNative
             if type_.name == builtins.NarBaseMathInt or type_.name == builtins.NarBaseMathFloat then
                 isOk = true
             end
@@ -110,6 +111,7 @@ local function newTypeGroup(type_, ub, loc)
     end
     if type_ ~= nil then
         if type_.kind == "TUnbound" then
+            ---@cast type_ TUnbound
             err = tg:absorb(type_, loc)
             if err ~= nil then
                 return nil, err
@@ -119,6 +121,7 @@ local function newTypeGroup(type_, ub, loc)
             if err2 ~= nil then
                 return nil, err2
             end
+            ---@cast _ -nil
         end
     end
     return tg, nil
@@ -188,6 +191,7 @@ function SolvingContext:newAnnotatedConstraint(stmt, predecessor, name)
     self.annotations[index + 1] = stmt
     local loc = (stmt.location ~= nil) and stmt.location or
         (type(stmt.Location) == "function" and stmt:Location() or nil)
+    ---@cast loc Location
     local type_ = newTUnbound(loc, predecessor, index, constraint, name)
     local tg, _err = newTypeGroup(nil, type_, loc)
     self.groups[#self.groups + 1] = tg
@@ -275,6 +279,7 @@ function SolvingContext:merge(l, r, loc)
                         if err ~= nil then
                             return nil, err
                         end
+                        ---@cast eqs -nil
                         if eqs ~= nil then
                             for _, eq in ipairs(eqs) do
                                 additional[#additional + 1] = eq
@@ -298,16 +303,28 @@ end
 ---@return Equation[]|nil eqs
 ---@return string|nil err
 function SolvingContext:insert(eq)
-    local lUb = (eq.left.kind == "TUnbound") and eq.left or nil
-    local rUb = (eq.right.kind == "TUnbound") and eq.right or nil
+    local left = eq.left
+    local right = eq.right
+    ---@type TUnbound|nil
+    local lUb = nil
+    if left.kind == "TUnbound" then
+        ---@cast left TUnbound
+        lUb = left
+    end
+    ---@type TUnbound|nil
+    local rUb = nil
+    if right.kind == "TUnbound" then
+        ---@cast right TUnbound
+        rUb = right
+    end
     if lUb ~= nil and rUb ~= nil then
         return self:merge(lUb, rUb, eq.stmt.location)
     elseif lUb ~= nil then
-        return self:specialize(lUb, eq.right, eq.stmt.location)
+        return self:specialize(lUb, right, eq.stmt.location)
     elseif rUb ~= nil then
-        return self:specialize(rUb, eq.left, eq.stmt.location)
+        return self:specialize(rUb, left, eq.stmt.location)
     else
-        return eq.left:merge(eq.right, eq.stmt.location)
+        return left:merge(right, eq.stmt.location)
     end
 end
 

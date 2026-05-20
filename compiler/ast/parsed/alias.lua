@@ -61,6 +61,7 @@ function Alias:inferType(moduleName, args)
     if err ~= nil then
         return nil, "", err
     end
+    ---@cast applied -nil
     return applied, id, nil
 end
 

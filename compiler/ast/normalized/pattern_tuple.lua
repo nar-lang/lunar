@@ -63,16 +63,19 @@ function NPTuple:annotate(ctx, typeParams, modules, typedModules, moduleName, ty
         if err ~= nil then
             return nil, err
         end
+        ---@cast it -nil
         items[i] = it
     end
     local declared, derr = utils.annotateTypeSafe(ctx, self.declaredType, typeParams, typeMapSource)
     if derr ~= nil then
         return nil, derr
     end
+    ---@cast declared -nil
     local tuple, terr = TyPTuple.new(ctx, self.location, declared, items)
     if terr ~= nil then
         return nil, terr
     end
+    ---@cast tuple -nil
     return self:setSuccessor(tuple)
 end
 

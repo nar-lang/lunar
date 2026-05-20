@@ -66,6 +66,7 @@ function NAccess:annotate(ctx, typeParams, modules, typedModules, moduleName, st
     if err ~= nil then
         return nil, err
     end
+    ---@cast record -nil
     return self:setSuccessor(TyAccess.new(ctx, self.location, self.fieldName, record))
 end
 
