@@ -111,8 +111,9 @@ local constants = {
     seqDot = ".",
     seqMinus = "-",
     seqLambda = "\\(",
-    seqLambdaBind = "->",
-    seqCaseBind = "->",
+    seqLambdaBind = "=>",
+    seqCaseBind = "=>",
+    seqReturnArrow = "->",
     seqInfixChars = "!#$%&*+-/:;<=>?^|~`",
 
     smbNewLine = "\n",
@@ -786,7 +787,7 @@ function Parser.parseType(src)
             end
         end
 
-        if Parser.readExact(src, constants.seqColon) then
+        if Parser.readExact(src, constants.seqReturnArrow) then
             local ret, err = Parser.parseType(src)
             if err ~= nil then
                 return nil, err
@@ -1115,7 +1116,7 @@ function Parser.parseSignature(src)
         end
     end
 
-    if Parser.readExact(src, constants.seqColon) then
+    if Parser.readExact(src, constants.seqReturnArrow) then
         ret, err = Parser.parseType(src)
         if err ~= nil then
             return nil, nil, err
@@ -1200,7 +1201,7 @@ function Parser.parseExpression(src, negate)
         end
 
         if not Parser.readExact(src, constants.seqLambdaBind) then
-            return nil, Parser.newError(src, "expected `->` here")
+            return nil, Parser.newError(src, "expected `=>` here")
         end
 
         local body, berr = Parser.parseExpression(src, false)
@@ -1370,7 +1371,7 @@ function Parser.parseExpression(src, negate)
             end
 
             if not Parser.readExact(src, constants.seqCaseBind) then
-                return nil, Parser.newError(src, "expected `->` here")
+                return nil, Parser.newError(src, "expected `=>` here")
             end
 
             local expr, eerr = Parser.parseExpression(src, false)
