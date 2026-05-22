@@ -1,3 +1,4 @@
+#!/usr/bin/env lua
 ---Lunar CLI.
 ---
 ---Usage: `lunar [--debug] [--out FILE] [--run MOD.DEF] <file-or-glob>... [-- <script-args>...]`
@@ -23,6 +24,51 @@
 ---containing `nar.json` is treated as a package root. If that directory
 ---has an `init.lua` it is `loadfile`d and called as `function(rt)` so it
 ---can register its native implementations.
+
+-- True only when this file is the program's entry point (not `require`d).
+-- For the main script Lua sets `source == "@" .. arg[0]`; for a `require`d
+-- chunk the source is the path the loader found, which differs from arg[0].
+local _IS_MAIN = arg ~= nil
+    and arg[0] ~= nil
+    and debug.getinfo(1, "S").source == "@" .. arg[0]
+
+-- When run as a script, prepend the parent of this `lunar/` repo to
+-- `package.path` so that `require("lunar.compiler")` etc. resolve
+-- without needing an external wrapper / LUA_PATH.
+if _IS_MAIN then
+    local src = debug.getinfo(1, "S").source
+    if src:sub(1, 1) == "@" then
+        local path = src:sub(2)
+        local function quote(s) return (s:gsub('"', '\\"')) end
+        local function dirname(p) return p:match("(.*/)") or "./" end
+        local function readlink(p)
+            local f = io.popen('readlink -- "' .. quote(p) .. '" 2>/dev/null')
+            local r = f and f:read("*l") or nil
+            if f then f:close() end
+            return (r ~= nil and r ~= "") and r or nil
+        end
+        -- Canonicalise a path's containing dir the POSIX-portable way.
+        local function realdirOf(p)
+            local f = io.popen('cd "$(dirname -- "' .. quote(p) .. '")" 2>/dev/null && pwd -P')
+            local r = f and f:read("*l") or nil
+            if f then f:close() end
+            return r or "."
+        end
+        for _ = 1, 32 do
+            local target = readlink(path)
+            if target == nil then break end
+            if target:sub(1, 1) ~= "/" then
+                target = dirname(path) .. target
+            end
+            path = target
+        end
+        -- path == .../lunar/cli/init.lua  →  rootDir == .../
+        local cliDir   = realdirOf(path)            -- .../lunar/cli
+        local lunarDir = realdirOf(cliDir)          -- .../lunar
+        local rootDir  = realdirOf(lunarDir) .. "/" -- .../
+        package.path   = rootDir .. "?.lua;" .. rootDir .. "?/init.lua;" .. package.path
+    end
+end
 
 local Compiler = require("lunar.compiler")
 local Runtime  = require("lunar.runtime")
@@ -463,4 +509,8 @@ local function main(argv)
     return runProgram(bytes, discoverPackageRoots(files), runEntry, scriptArgs)
 end
 
-os.exit(main(arg) or 0)
+if _IS_MAIN then
+    os.exit(main(arg) or 0)
+end
+
+return { main = main }
