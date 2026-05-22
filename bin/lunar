@@ -1,0 +1,22 @@
+#!/bin/sh
+# Lunar CLI launcher. Resolves `require("lunar.*")` by pointing
+# LUA_PATH at the parent of this repo's `lunar/` directory.
+
+set -e
+
+SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+# Follow symlinks so the launcher works from a PATH-installed symlink.
+while [ -L "$SCRIPT" ]; do
+    target="$(readlink "$SCRIPT")"
+    case "$target" in
+        /*) SCRIPT="$target" ;;
+        *)  SCRIPT="$(cd "$(dirname "$SCRIPT")" && pwd)/$target" ;;
+    esac
+done
+
+BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+LUNAR_DIR="$(cd "$BIN_DIR/.." && pwd)"
+PARENT_DIR="$(cd "$LUNAR_DIR/.." && pwd)"
+
+exec env LUA_PATH="$PARENT_DIR/?.lua;$PARENT_DIR/?/init.lua;;${LUA_PATH:-}" \
+    lua "$LUNAR_DIR/main.lua" "$@"
