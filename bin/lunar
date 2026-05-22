@@ -19,4 +19,4 @@ LUNAR_DIR="$(cd "$BIN_DIR/.." && pwd)"
 PARENT_DIR="$(cd "$LUNAR_DIR/.." && pwd)"
 
 exec env LUA_PATH="$PARENT_DIR/?.lua;$PARENT_DIR/?/init.lua;;${LUA_PATH:-}" \
-    lua "$LUNAR_DIR/main.lua" "$@"
+    lua "$LUNAR_DIR/cli/init.lua" "$@"
