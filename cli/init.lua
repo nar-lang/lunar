@@ -1,29 +1,34 @@
 #!/usr/bin/env lua
 ---Lunar CLI.
 ---
----Usage: `lunar [--debug] [--out FILE] [--run MOD.DEF] <file-or-glob>... [-- <script-args>...]`
+---Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [<file-or-glob>...] [-- <script-args>...]`
 ---
----By default compiles every `.nar` source into a single bytecode file at
----`--out FILE` (default `program.binar`).
+---At least one of `--bin` or `--run` is required.
 ---
----With `--run MOD.DEF`, also evaluates that entry in an in-process runtime
----(after loading package natives) and exits with the returned `Int`.
----Anything after a literal `--` is passed to the program as a
----`List String` argument.
+---When source files are given they are compiled. The resulting bytecode is
+---written to `--bin FILE` if provided; if only `--run` is given, the
+---bytecode is written to a temporary file that is deleted after the run
+---completes.
 ---
----If both `--run` and `--out` are given, the file is written *and* the
----program is executed. If only `--run` is given, no file is written
----(bytecode lives in memory for the duration of the process).
+---With `--run MOD.DEF`, the compiled (or pre-existing) bytecode is loaded
+---into an in-process runtime and the given entry is executed. The entry
+---must have type `(args: List String) -> Int`. Arguments after a literal
+---`--` are passed as the `List String`; the returned `Int` is the
+---process exit code.
+---
+---When no source files are given, both `--bin` and `--run` are required:
+---the bytecode is loaded from `--bin` and executed directly without any
+---compilation step.
 ---
 ---Positional arguments accept:
 ---  * an exact `.nar` file path;
 ---  * `<dir>/*`     — every `.nar` file directly under `<dir>`;
 ---  * `<dir>/**/*`  — every `.nar` file recursively under `<dir>`.
 ---
----Package natives: for each source file, the nearest ancestor directory
----containing `nar.json` is treated as a package root. If that directory
----has an `init.lua` it is `loadfile`d and called as `function(rt)` so it
----can register its native implementations.
+---Package natives: for each source file (or, when running an existing
+---binary, for each `nar.json` found under the current directory), the
+---containing package's `init.lua` (if present) is `loadfile`d and called
+---as `function(rt)` so it can register its native implementations.
 
 -- True only when this file is the program's entry point (not `require`d).
 -- For the main script Lua sets `source == "@" .. arg[0]`; for a `require`d
@@ -232,9 +237,10 @@ end
 
 local function usage()
     io.stderr:write([[
-usage: lunar [--debug] [--out FILE] [--run MOD.DEF] <file-or-glob>... [-- <script-args>...]
+usage: lunar [--debug] [--bin FILE] [--run MOD.DEF] [<file-or-glob>...] [-- <script-args>...]
 
-Compile Nar sources, and optionally run an entry definition.
+Compile Nar sources and/or run a compiled program. At least one of
+`--bin` or `--run` must be given.
 
 Positional arguments (before `--`):
   <file.nar>      a single source file
@@ -243,24 +249,35 @@ Positional arguments (before `--`):
 
 Flags:
   --debug         emit debug info into the bytecode
-  --out FILE      bytecode output path (default: program.binar when --run
-                  is not given; otherwise no file is written)
-  --run MOD.DEF   after compiling, execute the given entry in an
-                  in-process runtime. The entry must have type
+  --bin FILE      bytecode file path. With sources, the compiled bytecode
+                  is written here. Without sources, the bytecode is loaded
+                  from here (no compilation).
+  --run MOD.DEF   execute the given entry in an in-process runtime after
+                  loading package natives. The entry must have type
                   `(args: List String) -> Int`. Arguments after `--`
                   become the List String; the returned Int is the
                   process exit code.
   -h, --help      show this help
 
+Behaviour summary:
+  * sources + --bin                 compile, write FILE
+  * sources + --run                 compile to a temp file, run, delete temp
+  * sources + --bin + --run         compile, write FILE, run
+  * --bin + --run (no sources)      load FILE, run (no compilation)
+  * no --bin and no --run           error
+
 Examples:
   # Compile to program.binar
-  lunar Nar.Base/**/*
+  lunar --bin program.binar Nar.Base/**/*
 
-  # Compile and immediately run an entry def, passing CLI args through
+  # Compile and run in one shot (no file is left on disk)
   lunar --run Hello.main Hello.nar Nar.Base/**/* -- one two three
 
-  # Compile to a custom path AND run it
-  lunar --out hello.binar --run Hello.main Hello.nar Nar.Base/**/*
+  # Compile, persist bytecode, and run it
+  lunar --bin hello.binar --run Hello.main Hello.nar Nar.Base/**/*
+
+  # Run a previously-compiled bytecode
+  lunar --bin hello.binar --run Hello.main -- one two three
 ]])
 end
 
@@ -302,6 +319,34 @@ local function discoverPackageRoots(files)
         end
     end
     return roots
+end
+
+---Discover all package roots (dirs containing `nar.json`) anywhere under
+---the current working directory. Used when no source files are given and
+---we only want to run a pre-compiled binary: we still need to register
+---native implementations from whichever packages are checked out locally.
+---@return string[]
+local function discoverPackageRootsInCwd()
+    local raw = findLines('find . -type f -name "nar.json" 2>/dev/null')
+    local seen, roots = {}, {}
+    for _, p in ipairs(raw) do
+        local d = dirname(p)
+        if d == "" then d = "." end
+        if not seen[d] then
+            seen[d] = true
+            roots[#roots + 1] = d
+        end
+    end
+    return roots
+end
+
+---Build a unique temp path for a bytecode file. Uses `os.tmpname()` for
+---uniqueness; we append `.binar` so the path is recognisable. The caller
+---is responsible for removing the file after use.
+---@return string
+local function makeTempBinPath()
+    local base = os.tmpname()
+    return base .. ".binar"
 end
 
 ---Load and apply every package's `init.lua` (if any) to the runtime.
@@ -415,7 +460,7 @@ local function main(argv)
     local preArgs, scriptArgs = splitOnDoubleDash(argv)
 
     local debug = false
-    local outPath = nil
+    local binPath = nil
     local runEntry = nil
     local positional = {}
 
@@ -424,13 +469,13 @@ local function main(argv)
         local a = preArgs[i]
         if a == "--debug" then
             debug = true
-        elseif a == "--out" then
+        elseif a == "--bin" then
             if i == #preArgs then
-                eprintln("lunar: --out requires a FILE argument")
+                eprintln("lunar: --bin requires a FILE argument")
                 return 2
             end
             i = i + 1
-            outPath = preArgs[i]
+            binPath = preArgs[i]
         elseif a == "--run" then
             if i == #preArgs then
                 eprintln("lunar: --run requires a MOD.DEF argument")
@@ -455,12 +500,28 @@ local function main(argv)
         return 2
     end
 
-    if #positional == 0 then
-        eprintln("lunar: at least one source file or glob is required")
+    if binPath == nil and runEntry == nil then
+        eprintln("lunar: at least one of --bin or --run is required")
         eprintln("try `lunar --help`")
         return 2
     end
 
+    -- ---- No-sources path: run the pre-existing binary, no compilation. ----
+    if #positional == 0 then
+        if binPath == nil or runEntry == nil then
+            eprintln("lunar: no source files; --bin and --run are both required" ..
+                " to run an existing binary")
+            return 2
+        end
+        local bytes, rerr = readAll(binPath)
+        if bytes == nil then
+            eprintln("lunar: read " .. binPath .. ": " .. tostring(rerr))
+            return 1
+        end
+        return runProgram(bytes, discoverPackageRootsInCwd(), runEntry, scriptArgs)
+    end
+
+    -- ---- Compile path. -----------------------------------------------------
     local files, ferr = collectSources(positional)
     if files == nil then
         eprintln(ferr)
@@ -483,30 +544,36 @@ local function main(argv)
         return 1
     end
 
-    -- Decide whether to write the bytecode file.
-    --   * No --run            → always write (default path = program.binar).
-    --   * --run + --out FILE  → write FILE *and* run.
-    --   * --run alone         → in-memory only, skip writing.
-    local effectiveOut = outPath
-    if effectiveOut == nil and runEntry == nil then
-        effectiveOut = "program.binar"
+    -- Decide bytecode output location:
+    --   * --bin FILE          → write FILE (and keep it).
+    --   * --run only          → write temp file, delete after run.
+    --   * --bin + --run       → write FILE (and keep it), then run.
+    local writePath = binPath
+    local tempPath = nil
+    if writePath == nil then
+        -- runEntry is guaranteed non-nil here (we errored above otherwise).
+        tempPath = makeTempBinPath()
+        writePath = tempPath
     end
 
-    if effectiveOut ~= nil then
-        local ok, werr = writeAll(effectiveOut, bytes)
-        if not ok then
-            eprintln("lunar: write " .. effectiveOut .. ": " .. tostring(werr))
-            return 1
-        end
+    local ok, werr = writeAll(writePath, bytes)
+    if not ok then
+        eprintln("lunar: write " .. writePath .. ": " .. tostring(werr))
+        if tempPath ~= nil then os.remove(tempPath) end
+        return 1
+    end
+    if tempPath == nil then
         io.write(string.format("lunar: wrote %s (%d bytes, %d modules)\n",
-            effectiveOut, #bytes, #files))
+            writePath, #bytes, #files))
     end
 
     if runEntry == nil then
         return 0
     end
 
-    return runProgram(bytes, discoverPackageRoots(files), runEntry, scriptArgs)
+    local exitCode = runProgram(bytes, discoverPackageRoots(files), runEntry, scriptArgs)
+    if tempPath ~= nil then os.remove(tempPath) end
+    return exitCode
 end
 
 if _IS_MAIN then
