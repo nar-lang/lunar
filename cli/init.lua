@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 ---Lunar CLI.
 ---
----Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [<file-or-glob>...] [-- <script-args>...]`
+---Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
 ---
 ---At least one of `--bin` or `--run` is required.
 ---
@@ -25,10 +25,13 @@
 ---  * `<dir>/*`     — every `.nar` file directly under `<dir>`;
 ---  * `<dir>/**/*`  — every `.nar` file recursively under `<dir>`.
 ---
----Package natives: for each source file (or, when running an existing
----binary, for each `nar.json` found under the current directory), the
----containing package's `init.lua` (if present) is `loadfile`d and called
----as `function(rt)` so it can register its native implementations.
+---Native registration is explicit: pass `--native PATH` once per Lua
+---module that should be loaded into the runtime before `--run` executes.
+---PATH may be either a `.lua` file or a directory (in which case
+---`/init.lua` is appended). Each module must `return function(rt) ... end`
+---and will be invoked with the live `Runtime` so it can call
+---`rt:registerDef(...)`. `--native` is required only when running
+---(`--run`) code that depends on native definitions.
 
 -- True only when this file is the program's entry point (not `require`d).
 -- For the main script Lua sets `source == "@" .. arg[0]`; for a `require`d
@@ -121,28 +124,18 @@ local function dirname(path)
     return d or ""
 end
 
----Walk up from `startDir` until a directory containing `marker` is found.
----Returns the package directory or `nil` if none found.
----@param startDir string
----@param marker string e.g. "nar.json"
----@return string|nil
-local function findPackageRoot(startDir, marker)
-    local dir = startDir
-    if dir == "" then dir = "." end
-    while true do
-        local probe = dir .. "/" .. marker
-        local f = io.open(probe, "rb")
-        if f ~= nil then
-            f:close()
-            return dir
-        end
-        local parent = dir:match("^(.*)/[^/]+$")
-        if parent == nil or parent == dir then
-            return nil
-        end
-        if parent == "" then parent = "/" end
-        dir = parent
-    end
+---True if `path` exists and is a directory, false otherwise.
+---@param path string
+---@return boolean
+local function isDir(path)
+    -- Open-the-dir trick: io.open on a directory succeeds on Linux but
+    -- fails on macOS, so use a shell `[ -d ... ]` for portability.
+    local cmd = 'test -d "' .. path:gsub('"', '\\"') .. '" && echo y || echo n'
+    local p = io.popen(cmd)
+    if p == nil then return false end
+    local r = p:read("*l")
+    p:close()
+    return r == "y"
 end
 
 -- ----------------------------------------------------------------------------
@@ -237,7 +230,8 @@ end
 
 local function usage()
     io.stderr:write([[
-usage: lunar [--debug] [--bin FILE] [--run MOD.DEF] [<file-or-glob>...] [-- <script-args>...]
+usage: lunar [--debug] [--bin FILE] [--run MOD.DEF] [--native PATH]...
+             [<file-or-glob>...] [-- <script-args>...]
 
 Compile Nar sources and/or run a compiled program. At least one of
 `--bin` or `--run` must be given.
@@ -252,11 +246,15 @@ Flags:
   --bin FILE      bytecode file path. With sources, the compiled bytecode
                   is written here. Without sources, the bytecode is loaded
                   from here (no compilation).
-  --run MOD.DEF   execute the given entry in an in-process runtime after
-                  loading package natives. The entry must have type
-                  `(args: List String) -> Int`. Arguments after `--`
-                  become the List String; the returned Int is the
-                  process exit code.
+  --run MOD.DEF   execute the given entry in an in-process runtime. The
+                  entry must have type `(args: List String) -> Int`.
+                  Arguments after `--` become the List String; the
+                  returned Int is the process exit code.
+  --native PATH   register a native Lua module before running. PATH is
+                  either a .lua file or a directory (in which case
+                  /init.lua is appended). The module must
+                  `return function(rt) ... end`. May be given multiple
+                  times; modules are loaded in the order specified.
   -h, --help      show this help
 
 Behaviour summary:
@@ -271,13 +269,16 @@ Examples:
   lunar --bin program.binar Nar.Base/**/*
 
   # Compile and run in one shot (no file is left on disk)
-  lunar --run Hello.main Hello.nar Nar.Base/**/* -- one two three
+  lunar --run Hello.main --native Nar.Base Hello.nar Nar.Base/**/* \
+        -- one two three
 
   # Compile, persist bytecode, and run it
-  lunar --bin hello.binar --run Hello.main Hello.nar Nar.Base/**/*
+  lunar --bin hello.binar --run Hello.main --native Nar.Base \
+        Hello.nar Nar.Base/**/*
 
   # Run a previously-compiled bytecode
-  lunar --bin hello.binar --run Hello.main -- one two three
+  lunar --bin hello.binar --run Hello.main \
+        --native Nar.Base --native Nar.Tests -- one two three
 ]])
 end
 
@@ -302,42 +303,16 @@ local function splitOnDoubleDash(args)
     return pre, post
 end
 
----Discover all unique package roots (dirs containing `nar.json`) that
----host any of the given source files. Returns dir paths in stable order.
----@param files string[]
----@return string[]
-local function discoverPackageRoots(files)
-    local seen = {}
-    local roots = {}
-    for _, path in ipairs(files) do
-        local d = dirname(path)
-        if d == "" then d = "." end
-        local root = findPackageRoot(d, "nar.json")
-        if root ~= nil and not seen[root] then
-            seen[root] = true
-            roots[#roots + 1] = root
-        end
+---Resolve a `--native PATH` argument to the actual Lua file to load.
+---If `PATH` is a directory, `/init.lua` is appended. Otherwise it is
+---returned as-is.
+---@param path string
+---@return string
+local function resolveNativePath(path)
+    if isDir(path) then
+        return path .. "/init.lua"
     end
-    return roots
-end
-
----Discover all package roots (dirs containing `nar.json`) anywhere under
----the current working directory. Used when no source files are given and
----we only want to run a pre-compiled binary: we still need to register
----native implementations from whichever packages are checked out locally.
----@return string[]
-local function discoverPackageRootsInCwd()
-    local raw = findLines('find . -type f -name "nar.json" 2>/dev/null')
-    local seen, roots = {}, {}
-    for _, p in ipairs(raw) do
-        local d = dirname(p)
-        if d == "" then d = "." end
-        if not seen[d] then
-            seen[d] = true
-            roots[#roots + 1] = d
-        end
-    end
-    return roots
+    return path
 end
 
 ---Build a unique temp path for a bytecode file. Uses `os.tmpname()` for
@@ -349,44 +324,34 @@ local function makeTempBinPath()
     return base .. ".binar"
 end
 
----Load and apply every package's `init.lua` (if any) to the runtime.
+---Load and apply each explicitly-listed native Lua module to the runtime.
 ---
 ---We use `loadfile` rather than `require` because Lua's require translates
 ---dots in the module name into path separators (so `require("Nar.Base")`
 ---looks for `Nar/Base.lua`), which is hostile to packages whose root dir
----name literally contains dots (`Nar.Base/`). A package init.lua is
----side-effect-only (registers natives); there is no semantic need to
----cache it in `package.loaded`.
+---name literally contains dots (`Nar.Base/`). Native modules are
+---side-effect-only (they register definitions on `rt`); there is no
+---semantic need to cache them in `package.loaded`.
 ---@param rt Runtime
----@param roots string[]
+---@param nativePaths string[] paths already resolved by `resolveNativePath`
 ---@return string|nil err
-local function registerPackageNatives(rt, roots)
-    for _, root in ipairs(roots) do
-        local initPath = root .. "/init.lua"
-        local chunk, lerr = loadfile(initPath)
+local function registerNatives(rt, nativePaths)
+    for _, path in ipairs(nativePaths) do
+        local chunk, lerr = loadfile(path)
         if chunk == nil then
-            -- Distinguish "file does not exist" (silently skip) from a real
-            -- load error.
-            local f = io.open(initPath, "rb")
-            if f == nil then
-                -- no init.lua → nothing to register for this package
-            else
-                f:close()
-                return "load " .. initPath .. ": " .. tostring(lerr)
-            end
-        else
-            local cok, modOrErr = pcall(chunk)
-            if not cok then
-                return "evaluate " .. initPath .. ": " .. tostring(modOrErr)
-            end
-            if type(modOrErr) ~= "function" then
-                return initPath .. " must `return function(rt) ... end`" ..
-                    " (got " .. type(modOrErr) .. ")"
-            end
-            local rok, rerr = pcall(modOrErr, rt)
-            if not rok then
-                return "register natives from " .. initPath .. ": " .. tostring(rerr)
-            end
+            return "load " .. path .. ": " .. tostring(lerr)
+        end
+        local cok, modOrErr = pcall(chunk)
+        if not cok then
+            return "evaluate " .. path .. ": " .. tostring(modOrErr)
+        end
+        if type(modOrErr) ~= "function" then
+            return path .. " must `return function(rt) ... end`" ..
+                " (got " .. type(modOrErr) .. ")"
+        end
+        local rok, rerr = pcall(modOrErr, rt)
+        if not rok then
+            return "register natives from " .. path .. ": " .. tostring(rerr)
         end
     end
     return nil
@@ -405,15 +370,15 @@ end
 
 ---Execute `entryName` on the bytecode, with `scriptArgs` as a List String.
 ---@param bytes string
----@param pkgRoots string[]
+---@param nativePaths string[]
 ---@param entryName string
 ---@param scriptArgs string[]
 ---@return integer exitCode
-local function runProgram(bytes, pkgRoots, entryName, scriptArgs)
+local function runProgram(bytes, nativePaths, entryName, scriptArgs)
     local btc = Runtime.loadBytecode(bytes)
     local rt = Runtime.new(btc)
 
-    local nerr = registerPackageNatives(rt, pkgRoots)
+    local nerr = registerNatives(rt, nativePaths)
     if nerr ~= nil then
         eprintln("lunar: " .. nerr)
         return 1
@@ -462,6 +427,7 @@ local function main(argv)
     local debug = false
     local binPath = nil
     local runEntry = nil
+    local nativePaths = {}
     local positional = {}
 
     local i = 1
@@ -483,6 +449,13 @@ local function main(argv)
             end
             i = i + 1
             runEntry = preArgs[i]
+        elseif a == "--native" then
+            if i == #preArgs then
+                eprintln("lunar: --native requires a PATH argument")
+                return 2
+            end
+            i = i + 1
+            nativePaths[#nativePaths + 1] = resolveNativePath(preArgs[i])
         elseif a == "-h" or a == "--help" then
             usage()
             return 0
@@ -497,6 +470,11 @@ local function main(argv)
 
     if #scriptArgs > 0 and runEntry == nil then
         eprintln("lunar: arguments after `--` require `--run MOD.DEF`")
+        return 2
+    end
+
+    if #nativePaths > 0 and runEntry == nil then
+        eprintln("lunar: --native is only meaningful together with --run")
         return 2
     end
 
@@ -518,7 +496,7 @@ local function main(argv)
             eprintln("lunar: read " .. binPath .. ": " .. tostring(rerr))
             return 1
         end
-        return runProgram(bytes, discoverPackageRootsInCwd(), runEntry, scriptArgs)
+        return runProgram(bytes, nativePaths, runEntry, scriptArgs)
     end
 
     -- ---- Compile path. -----------------------------------------------------
@@ -571,7 +549,7 @@ local function main(argv)
         return 0
     end
 
-    local exitCode = runProgram(bytes, discoverPackageRoots(files), runEntry, scriptArgs)
+    local exitCode = runProgram(bytes, nativePaths, runEntry, scriptArgs)
     if tempPath ~= nil then os.remove(tempPath) end
     return exitCode
 end
