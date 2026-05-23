@@ -317,15 +317,21 @@ function SolvingContext:insert(eq)
         ---@cast right TUnbound
         rUb = right
     end
+    local loc = eq.stmt.location
+    local eqs, err
     if lUb ~= nil and rUb ~= nil then
-        return self:merge(lUb, rUb, eq.stmt.location)
+        eqs, err = self:merge(lUb, rUb, loc)
     elseif lUb ~= nil then
-        return self:specialize(lUb, right, eq.stmt.location)
+        eqs, err = self:specialize(lUb, right, loc)
     elseif rUb ~= nil then
-        return self:specialize(rUb, left, eq.stmt.location)
+        eqs, err = self:specialize(rUb, left, loc)
     else
-        return left:merge(right, eq.stmt.location)
+        eqs, err = left:merge(right, loc)
     end
+    if err ~= nil and loc ~= nil and not loc:isEmpty() then
+        err = loc:cursorString() .. ": " .. err
+    end
+    return eqs, err
 end
 
 ---@param eqs Equation[]

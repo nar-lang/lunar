@@ -127,7 +127,7 @@ function TyFunc:code(currentModule)
     for _, p in ipairs(self.params) do
         parts[#parts + 1] = p:code("")
     end
-    return string.format("(%s): %s", table.concat(parts, ", "), self.return_:code(""))
+    return string.format("(%s) -> %s", table.concat(parts, ", "), self.return_:code(""))
 end
 
 return { TyFunc = TyFunc }
