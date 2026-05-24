@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 ---Lunar CLI.
 ---
----Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
+---Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--cache PATH] [--package PATH]... [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
 ---
 ---At least one of `--bin` or `--run` is required.
 ---
@@ -16,14 +16,23 @@
 ---`--` are passed as the `List String`; the returned `Int` is the
 ---process exit code.
 ---
----When no source files are given, both `--bin` and `--run` are required:
----the bytecode is loaded from `--bin` and executed directly without any
----compilation step.
+---When no source files (positional or via `--package`) are given, both
+---`--bin` and `--run` are required: the bytecode is loaded from `--bin`
+---and executed directly without any compilation step.
 ---
 ---Positional arguments accept:
 ---  * an exact `.nar` file path;
 ---  * `<dir>/*`     — every `.nar` file directly under `<dir>`;
 ---  * `<dir>/**/*`  — every `.nar` file recursively under `<dir>`.
+---
+---Packages: `--package PATH` is the high-level way to add a whole Nar
+---package to the build. PATH must be a directory; every `*.nar` file
+---found recursively under it is added as a source module, and if
+---`PATH/init.lua` exists, that file is automatically registered as a
+---native module (equivalent to passing `--native PATH/init.lua`).
+---`--package` may be given multiple times. Dependency resolution between
+---packages will be wired through `--cache PATH` (default `~/.nar`) in a
+---later iteration.
 ---
 ---Native registration is explicit: pass `--native PATH` once per Lua
 ---module that should be loaded into the runtime before `--run` executes.
@@ -138,6 +147,32 @@ local function isDir(path)
     return r == "y"
 end
 
+---True if `path` exists and is a regular file, false otherwise.
+---@param path string
+---@return boolean
+local function isFile(path)
+    local f = io.open(path, "rb")
+    if f == nil then return false end
+    f:close()
+    return true
+end
+
+---Expand a leading `~` (referring to `$HOME`) in a path. Leaves other
+---paths unchanged. If `$HOME` is unset the original path is returned.
+---@param path string
+---@return string
+local function expandHome(path)
+    if path == "~" then
+        return os.getenv("HOME") or path
+    end
+    if path:sub(1, 2) == "~/" then
+        local home = os.getenv("HOME")
+        if home == nil then return path end
+        return home .. path:sub(2)
+    end
+    return path
+end
+
 -- ----------------------------------------------------------------------------
 -- Argument expansion (globs)
 -- ----------------------------------------------------------------------------
@@ -230,7 +265,8 @@ end
 
 local function usage()
     io.stderr:write([[
-usage: lunar [--debug] [--bin FILE] [--run MOD.DEF] [--native PATH]...
+usage: lunar [-d|--debug] [-b|--bin FILE] [-r|--run MOD.DEF]
+             [-c|--cache PATH] [-p|--package PATH]... [-n|--native PATH]...
              [<file-or-glob>...] [-- <script-args>...]
 
 Compile Nar sources and/or run a compiled program. At least one of
@@ -241,44 +277,52 @@ Positional arguments (before `--`):
   <dir>/*         every .nar file directly under <dir>
   <dir>/**/*      every .nar file recursively under <dir>
 
-Flags:
-  --debug         emit debug info into the bytecode
-  --bin FILE      bytecode file path. With sources, the compiled bytecode
-                  is written here. Without sources, the bytecode is loaded
-                  from here (no compilation).
-  --run MOD.DEF   execute the given entry in an in-process runtime. The
-                  entry must have type `(args: List String) -> Int`.
-                  Arguments after `--` become the List String; the
-                  returned Int is the process exit code.
-  --native PATH   register a native Lua module before running. PATH is
-                  either a .lua file or a directory (in which case
-                  /init.lua is appended). The module must
-                  `return function(rt) ... end`. May be given multiple
-                  times; modules are loaded in the order specified.
-  -h, --help      show this help
+Flags (each long flag has a single-letter short alias):
+  -d, --debug         emit debug info into the bytecode
+  -b, --bin FILE      bytecode file path. With sources, the compiled
+                      bytecode is written here. Without sources, the
+                      bytecode is loaded from here (no compilation).
+  -r, --run MOD.DEF   execute the given entry in an in-process runtime.
+                      The entry must have type
+                      `(args: List String) -> Int`. Arguments after `--`
+                      become the List String; the returned Int is the
+                      process exit code.
+  -c, --cache PATH    directory used to cache compiled dependencies.
+                      Defaults to ~/.nar. Reserved for future use; not
+                      consumed yet.
+  -p, --package PATH  add an entire Nar package to the build. PATH must
+                      be a directory. Every *.nar file recursively under
+                      it is added as a source module, and if
+                      PATH/init.lua exists it is registered as a native
+                      module. May be given multiple times.
+  -n, --native PATH   register a native Lua module before running. PATH
+                      is either a .lua file or a directory (in which
+                      case /init.lua is appended). The module must
+                      `return function(rt) ... end`. May be given
+                      multiple times; modules are loaded in the order
+                      specified.
+  -h, --help          show this help
 
 Behaviour summary:
-  * sources + --bin                 compile, write FILE
-  * sources + --run                 compile to a temp file, run, delete temp
-  * sources + --bin + --run         compile, write FILE, run
-  * --bin + --run (no sources)      load FILE, run (no compilation)
-  * no --bin and no --run           error
+  * sources/packages + --bin              compile, write FILE
+  * sources/packages + --run              compile to a temp file, run, delete temp
+  * sources/packages + --bin + --run      compile, write FILE, run
+  * --bin + --run (no sources/packages)   load FILE, run (no compilation)
+  * no --bin and no --run                 error
 
 Examples:
   # Compile to program.binar
-  lunar --bin program.binar Nar.Base/**/*
+  lunar -b program.binar -p Nar.Base
 
   # Compile and run in one shot (no file is left on disk)
-  lunar --run Hello.main --native Nar.Base Hello.nar Nar.Base/**/* \
-        -- one two three
+  lunar -r Hello.main -p Nar.Base Hello.nar -- one two three
 
   # Compile, persist bytecode, and run it
-  lunar --bin hello.binar --run Hello.main --native Nar.Base \
-        Hello.nar Nar.Base/**/*
+  lunar -b hello.binar -r Hello.main -p Nar.Base Hello.nar
 
   # Run a previously-compiled bytecode
-  lunar --bin hello.binar --run Hello.main \
-        --native Nar.Base --native Nar.Tests -- one two three
+  lunar -b hello.binar -r Hello.main -n Nar.Base -n Nar.Tests \
+        -- one two three
 ]])
 end
 
@@ -313,6 +357,26 @@ local function resolveNativePath(path)
         return path .. "/init.lua"
     end
     return path
+end
+
+---Expand a `--package PATH` argument into its constituent parts.
+---Returns the list of `.nar` source files (recursive) and, if the
+---package has an `init.lua`, the resolved native path. Returns `nil, err`
+---if PATH is not a directory.
+---@param pkgPath string
+---@return string[]|nil sources, string|nil nativePath, string|nil err
+local function expandPackage(pkgPath)
+    if not isDir(pkgPath) then
+        return nil, nil, "--package: not a directory: " .. pkgPath
+    end
+    local quoted = pkgPath:gsub('"', '\\"')
+    local sources = findLines('find "' .. quoted .. '" -type f -name "*.nar" 2>/dev/null')
+    local nativePath = nil
+    local initLua = pkgPath .. "/init.lua"
+    if isFile(initLua) then
+        nativePath = initLua
+    end
+    return sources, nativePath, nil
 end
 
 ---Build a unique temp path for a bytecode file. Uses `os.tmpname()` for
@@ -427,35 +491,53 @@ local function main(argv)
     local debug = false
     local binPath = nil
     local runEntry = nil
+    local cachePath = expandHome("~/.nar")
     local nativePaths = {}
+    local packagePaths = {}
     local positional = {}
+    local explicitNativeCount = 0
 
     local i = 1
     while i <= #preArgs do
         local a = preArgs[i]
-        if a == "--debug" then
+        if a == "--debug" or a == "-d" then
             debug = true
-        elseif a == "--bin" then
+        elseif a == "--bin" or a == "-b" then
             if i == #preArgs then
                 eprintln("lunar: --bin requires a FILE argument")
                 return 2
             end
             i = i + 1
             binPath = preArgs[i]
-        elseif a == "--run" then
+        elseif a == "--run" or a == "-r" then
             if i == #preArgs then
                 eprintln("lunar: --run requires a MOD.DEF argument")
                 return 2
             end
             i = i + 1
             runEntry = preArgs[i]
-        elseif a == "--native" then
+        elseif a == "--cache" or a == "-c" then
+            if i == #preArgs then
+                eprintln("lunar: --cache requires a PATH argument")
+                return 2
+            end
+            i = i + 1
+            cachePath = expandHome(preArgs[i])
+        elseif a == "--package" or a == "-p" then
+            if i == #preArgs then
+                eprintln("lunar: --package requires a PATH argument")
+                return 2
+            end
+            i = i + 1
+            packagePaths[#packagePaths + 1] = preArgs[i]
+        elseif a == "--native" or a == "-n" then
             if i == #preArgs then
                 eprintln("lunar: --native requires a PATH argument")
                 return 2
             end
             i = i + 1
             nativePaths[#nativePaths + 1] = resolveNativePath(preArgs[i])
+            explicitNativeCount = explicitNativeCount + 1
         elseif a == "-h" or a == "--help" then
             usage()
             return 0
@@ -473,7 +555,7 @@ local function main(argv)
         return 2
     end
 
-    if #nativePaths > 0 and runEntry == nil then
+    if explicitNativeCount > 0 and runEntry == nil then
         eprintln("lunar: --native is only meaningful together with --run")
         return 2
     end
@@ -484,8 +566,26 @@ local function main(argv)
         return 2
     end
 
+    -- Expand each --package into its source files and (optional) native path.
+    -- Auto-discovered native paths are appended AFTER explicit --native, so
+    -- explicit registrations win when registration order matters.
+    local packageSources = {}
+    for _, pkgPath in ipairs(packagePaths) do
+        local srcs, nativePath, perr = expandPackage(pkgPath)
+        if srcs == nil then
+            eprintln("lunar: " .. perr)
+            return 2
+        end
+        for _, f in ipairs(srcs) do
+            packageSources[#packageSources + 1] = f
+        end
+        if nativePath ~= nil then
+            nativePaths[#nativePaths + 1] = nativePath
+        end
+    end
+
     -- ---- No-sources path: run the pre-existing binary, no compilation. ----
-    if #positional == 0 then
+    if #positional == 0 and #packagePaths == 0 then
         if binPath == nil or runEntry == nil then
             eprintln("lunar: no source files; --bin and --run are both required" ..
                 " to run an existing binary")
@@ -505,6 +605,25 @@ local function main(argv)
         eprintln(ferr)
         return 2
     end
+
+    -- Merge in package-discovered sources (dedup by exact path).
+    local seenFile = {}
+    for _, f in ipairs(files) do seenFile[f] = true end
+    for _, f in ipairs(packageSources) do
+        if not seenFile[f] then
+            seenFile[f] = true
+            files[#files + 1] = f
+        end
+    end
+
+    if #files == 0 then
+        eprintln("lunar: no .nar source files to compile")
+        return 2
+    end
+
+    -- `cachePath` is parsed and validated but not consumed yet; dependency
+    -- resolution will use it.
+    _ = cachePath
 
     local sources, serr = readSources(files)
     if sources == nil then
