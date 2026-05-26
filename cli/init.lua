@@ -198,11 +198,137 @@ local function findLines(cmd)
 end
 
 -- ----------------------------------------------------------------------------
--- Package resolution
+-- Package resolution (disk + git loader for `Packages.collect`)
 -- ----------------------------------------------------------------------------
--- Manifest parsing, dependency walking and git cloning all live in
--- `lunar.compiler.packages`. The CLI just feeds it a search path (cache
--- dir + `--dir` entries) and a list of package names.
+-- `lunar.compiler.packages` is IO-free: it walks the dependency graph but
+-- delegates every `name -> (modules, natives, nar.json text)` lookup to a
+-- callback. The CLI supplies a filesystem-backed loader here that probes a
+-- list of search dirs and clones missing repos into the first one (the
+-- cache dir). `Packages.parseJson` is reused for the candidate-name peek
+-- so the CLI doesn't carry its own JSON parser.
+
+---Read a `nar.json`-bearing directory. Returns the inputs
+---`Packages.collect` expects: `(moduleFiles, nativeScripts, narJsonText)`.
+---`nativeScripts` is a single-element list pointing at `<dir>/init.lua`
+---when present.
+---@param dir string
+---@return string[]|nil moduleFiles
+---@return string[]|nil nativeScripts
+---@return string|nil narJsonText
+---@return string|nil err
+local function loadPackageDir(dir)
+    if not isDir(dir) then
+        return nil, nil, nil, "not a directory: " .. dir
+    end
+    local manifestPath = dir .. "/nar.json"
+    if not isFile(manifestPath) then
+        return nil, nil, nil, "missing manifest: " .. manifestPath
+    end
+    local text, rerr = readAll(manifestPath)
+    if text == nil then
+        return nil, nil, nil, "read " .. manifestPath .. ": " .. tostring(rerr)
+    end
+
+    local quoted = dir:gsub('"', '\\"')
+    local modules = findLines('find "' .. quoted .. '" -type f -name "*.nar" 2>/dev/null')
+
+    local natives = {}
+    if isFile(dir .. "/init.lua") then
+        natives[1] = dir .. "/init.lua"
+    end
+
+    return modules, natives, text, nil
+end
+
+---Try a candidate directory: succeeds only if the directory exists,
+---has a `nar.json`, and its declared name matches `expectedName`.
+---Returns `(nil, nil, nil, nil)` when the candidate is absent or the
+---declared name doesn't match (caller should keep probing). Returns a
+---real `err` only on a load / parse failure.
+---@param dir string
+---@param expectedName string
+---@return string[]|nil moduleFiles
+---@return string[]|nil nativeScripts
+---@return string|nil narJsonText
+---@return string|nil err
+local function tryLoadCandidate(dir, expectedName)
+    if not isDir(dir) then return nil, nil, nil, nil end
+    if not isFile(dir .. "/nar.json") then return nil, nil, nil, nil end
+    local modules, natives, text, lerr = loadPackageDir(dir)
+    if lerr ~= nil then return nil, nil, nil, lerr end
+    local parsed, perr = Packages.parseJson(text)
+    if parsed == nil then
+        return nil, nil, nil, "parse " .. dir .. "/nar.json: " .. tostring(perr)
+    end
+    if type(parsed) ~= "table" or parsed.name ~= expectedName then
+        eprintln("lunar: warning: " .. dir ..
+            "/nar.json declares name `" .. tostring(parsed.name) ..
+            "` but was looked up as `" .. expectedName .. "`")
+        return nil, nil, nil, nil
+    end
+    return modules, natives, text, nil
+end
+
+---@param repoUrl string e.g. github.com/nar-lang/Nar.Base
+---@param destDir string
+---@return string|nil err
+local function cloneRepo(repoUrl, destDir)
+    local parent = dirname(destDir)
+    if parent ~= "" then
+        os.execute('mkdir -p "' .. parent:gsub('"', '\\"') .. '"')
+    end
+    local quotedUrl  = repoUrl:gsub('"', '\\"')
+    local quotedDest = destDir:gsub('"', '\\"')
+    eprintln("lunar: cloning " .. repoUrl .. " -> " .. destDir)
+    local cmd = 'git clone --depth 1 "https://' .. quotedUrl .. '" "' ..
+        quotedDest .. '" >&2'
+    local ok = os.execute(cmd)
+    if ok ~= true and ok ~= 0 then
+        return "git clone failed for " .. repoUrl
+    end
+    return nil
+end
+
+---Build a `loadPackage(name, url)` closure suitable for
+---`Packages.collect`. The closure probes every dir in `searchDirs` for
+---`<dir>/<name>` first, then `<dir>/<url>` (if url is given), and
+---falls back to `git clone https://<url>` into `searchDirs[1]/<url>`.
+---@param searchDirs string[]  the first entry is also the clone cache dir
+---@return LoadPackageFn
+local function makeDiskLoader(searchDirs)
+    assert(type(searchDirs) == "table" and #searchDirs > 0,
+        "makeDiskLoader: searchDirs must be a non-empty list")
+    local cacheDir = searchDirs[1]
+    os.execute('mkdir -p "' .. cacheDir:gsub('"', '\\"') .. '"')
+
+    return function(name, url)
+        -- 1) by package name in each search dir
+        for _, base in ipairs(searchDirs) do
+            local m, n, t, lerr = tryLoadCandidate(base .. "/" .. name, name)
+            if lerr ~= nil then return nil, nil, nil, lerr end
+            if t ~= nil then return m, n, t, nil end
+        end
+
+        -- 2) by repo URL in each search dir
+        if url ~= nil and url ~= "" then
+            for _, base in ipairs(searchDirs) do
+                local m, n, t, lerr = tryLoadCandidate(base .. "/" .. url, name)
+                if lerr ~= nil then return nil, nil, nil, lerr end
+                if t ~= nil then return m, n, t, nil end
+            end
+
+            -- 3) clone into the cache dir
+            local destDir = cacheDir .. "/" .. url
+            local cerr = cloneRepo(url, destDir)
+            if cerr ~= nil then return nil, nil, nil, cerr end
+            -- Name-mismatch warning happens in collect after parsing.
+            return loadPackageDir(destDir)
+        end
+
+        return nil, nil, nil,
+            "not found in search dirs (no repository URL to clone from)"
+    end
+end
 
 -- ----------------------------------------------------------------------------
 -- Argument expansion (globs)
@@ -578,12 +704,13 @@ local function main(argv)
         return 2
     end
 
-    -- Resolve each --package and its transitive dependencies. The search
-    -- path is the cache dir followed by every --dir (defaulting to `.` if
-    -- none were given). Missing transitive deps are cloned into the cache
-    -- dir. Auto-discovered native dirs are appended AFTER explicit
-    -- --native, so explicit registrations win when registration order
-    -- matters.
+    -- Resolve each --package and its transitive dependencies. The CLI
+    -- builds a disk-backed loader closure (probes cache dir + --dir
+    -- entries, clones missing deps) and hands it to the pure resolver
+    -- in `lunar.compiler.packages`. Native scripts returned by the
+    -- loader are full paths to `.lua` files (typically
+    -- `<pkgDir>/init.lua`) and are appended AFTER explicit --native,
+    -- so explicit registrations win when registration order matters.
     local packageSources = {}
     if #packageNames > 0 then
         if #searchDirs == 0 then
@@ -593,7 +720,8 @@ local function main(argv)
         for _, d in ipairs(searchDirs) do
             fullSearch[#fullSearch + 1] = d
         end
-        local modules, natives, rerr = Packages.collect(fullSearch, packageNames)
+        local modules, natives, rerr =
+            Packages.collect(packageNames, makeDiskLoader(fullSearch))
         if modules == nil then
             eprintln("lunar: " .. rerr)
             return 2
@@ -601,8 +729,8 @@ local function main(argv)
         for _, f in ipairs(modules) do
             packageSources[#packageSources + 1] = f
         end
-        for _, d in ipairs(natives) do
-            nativePaths[#nativePaths + 1] = resolveNativePath(d)
+        for _, n in ipairs(natives) do
+            nativePaths[#nativePaths + 1] = n
         end
     end
 
