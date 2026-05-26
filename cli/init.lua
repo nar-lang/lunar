@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 ---Lunar CLI.
 ---
----Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--cache PATH] [--package PATH]... [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
+---Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--cache PATH] [--dir DIR]... [--package NAME]... [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
 ---
 ---At least one of `--bin` or `--run` is required.
 ---
@@ -25,21 +25,19 @@
 ---  * `<dir>/*`     — every `.nar` file directly under `<dir>`;
 ---  * `<dir>/**/*`  — every `.nar` file recursively under `<dir>`.
 ---
----Packages: `--package PATH` is the high-level way to add a whole Nar
----package to the build. PATH must be a directory containing a `nar.json`
----manifest. Every `*.nar` file found recursively under it is added as a
----source module, and if `PATH/init.lua` exists, that file is
----automatically registered as a native module (equivalent to passing
----`--native PATH/init.lua`). `--package` may be given multiple times.
----
----Dependencies declared in each package's `nar.json` are resolved
----recursively. Each dependency entry has the form
----`"<name>": "<repository>"`. If a dependency's `<name>` matches the
----declared name of another `--package`, that user-provided package is
----used; otherwise the repository is cloned (with `git clone --depth 1`)
----into `<cache>/<repository>` and its own dependencies are resolved in
----turn. The cache directory defaults to `~/.nar` and is controlled by
----`--cache PATH`.
+---Packages: `--package NAME` adds a whole Nar package (by declared
+---`nar.json.name`) to the build. May be given multiple times. Each name
+---is resolved against the search path:
+---  1. the cache dir (`--cache PATH`, default `~/.nar`);
+---  2. each `--dir DIR` in the order given (defaults to `.` if none).
+---For each candidate `<searchDir>` the resolver probes
+---`<searchDir>/<name>/nar.json` first, then — when recursing into
+---transitive dependencies — `<searchDir>/<repository>/nar.json`. If
+---neither is found, the dependency's repository is cloned
+---(`git clone --depth 1 https://<repo>`) into `<cache>/<repository>`.
+---Every `*.nar` file under a resolved package is added as a source
+---module, and if `<package>/init.lua` exists it is automatically
+---registered as a native module (equivalent to `--native <package>`).
 ---
 ---Native registration is explicit: pass `--native PATH` once per Lua
 ---module that should be loaded into the runtime before `--run` executes.
@@ -47,7 +45,8 @@
 ---`/init.lua` is appended). Each module must `return function(rt) ... end`
 ---and will be invoked with the live `Runtime` so it can call
 ---`rt:registerDef(...)`. `--native` is required only when running
----(`--run`) code that depends on native definitions.
+---(`--run`) code that depends on native definitions not provided by a
+---resolved `--package`.
 
 -- True only when this file is the program's entry point (not `require`d).
 -- For the main script Lua sets `source == "@" .. arg[0]`; for a `require`d
@@ -95,6 +94,7 @@ if _IS_MAIN then
 end
 
 local Compiler = require("lunar.compiler")
+local Packages = require("lunar.compiler.packages")
 local Runtime  = require("lunar.runtime")
 local Object   = Runtime.Object
 
@@ -198,321 +198,11 @@ local function findLines(cmd)
 end
 
 -- ----------------------------------------------------------------------------
--- Minimal JSON parser
+-- Package resolution
 -- ----------------------------------------------------------------------------
--- Recursive-descent parser for the strict subset of JSON used by nar.json
--- (strings, numbers, booleans, null, arrays, objects). Returns the parsed
--- value or `nil, err`. Object keys preserve no ordering guarantee.
-
----@param text string
----@return any|nil value, string|nil err
-local function jsonParse(text)
-    local i = 1
-    local n = #text
-
-    local skipWs, parseValue, parseString, parseArray, parseObject, parseNumber
-
-    skipWs = function()
-        while i <= n do
-            local c = text:sub(i, i)
-            if c == " " or c == "\t" or c == "\n" or c == "\r" then
-                i = i + 1
-            else
-                return
-            end
-        end
-    end
-
-    local function err(msg)
-        error("at offset " .. i .. ": " .. msg, 0)
-    end
-
-    parseString = function()
-        if text:sub(i, i) ~= '"' then err("expected string") end
-        i = i + 1
-        local out = {}
-        while i <= n do
-            local c = text:sub(i, i)
-            if c == '"' then
-                i = i + 1
-                return table.concat(out)
-            elseif c == "\\" then
-                i = i + 1
-                local esc = text:sub(i, i)
-                i = i + 1
-                if esc == '"' then out[#out + 1] = '"'
-                elseif esc == '\\' then out[#out + 1] = '\\'
-                elseif esc == '/' then out[#out + 1] = '/'
-                elseif esc == 'n' then out[#out + 1] = '\n'
-                elseif esc == 't' then out[#out + 1] = '\t'
-                elseif esc == 'r' then out[#out + 1] = '\r'
-                elseif esc == 'b' then out[#out + 1] = '\b'
-                elseif esc == 'f' then out[#out + 1] = '\f'
-                elseif esc == 'u' then
-                    local cp = tonumber(text:sub(i, i + 3), 16)
-                    if cp == nil then
-                        err("bad \\u escape")
-                    else
-                        i = i + 4
-                        out[#out + 1] = utf8.char(cp)
-                    end
-                else err("bad escape \\" .. esc) end
-            else
-                out[#out + 1] = c
-                i = i + 1
-            end
-        end
-        err("unterminated string")
-    end
-
-    parseArray = function()
-        i = i + 1
-        skipWs()
-        local arr = {}
-        if text:sub(i, i) == "]" then i = i + 1; return arr end
-        while true do
-            arr[#arr + 1] = parseValue()
-            skipWs()
-            local c = text:sub(i, i)
-            if c == "," then i = i + 1; skipWs()
-            elseif c == "]" then i = i + 1; return arr
-            else err("expected , or ]") end
-        end
-    end
-
-    parseObject = function()
-        i = i + 1
-        skipWs()
-        local obj = {}
-        if text:sub(i, i) == "}" then i = i + 1; return obj end
-        while true do
-            skipWs()
-            local key = parseString()
-            skipWs()
-            if text:sub(i, i) ~= ":" then err("expected :") end
-            i = i + 1
-            skipWs()
-            obj[key] = parseValue()
-            skipWs()
-            local c = text:sub(i, i)
-            if c == "," then i = i + 1
-            elseif c == "}" then i = i + 1; return obj
-            else err("expected , or }") end
-        end
-    end
-
-    parseNumber = function()
-        local s = i
-        if text:sub(i, i) == "-" then i = i + 1 end
-        while i <= n and text:sub(i, i):match("[%d%.eE%+%-]") do
-            i = i + 1
-        end
-        local num = tonumber(text:sub(s, i - 1))
-        if num == nil then err("bad number") end
-        return num
-    end
-
-    parseValue = function()
-        skipWs()
-        local c = text:sub(i, i)
-        if c == '"' then return parseString() end
-        if c == "{" then return parseObject() end
-        if c == "[" then return parseArray() end
-        if c == "t" then
-            if text:sub(i, i + 3) ~= "true" then err("expected true") end
-            i = i + 4; return true
-        end
-        if c == "f" then
-            if text:sub(i, i + 4) ~= "false" then err("expected false") end
-            i = i + 5; return false
-        end
-        if c == "n" then
-            if text:sub(i, i + 3) ~= "null" then err("expected null") end
-            i = i + 4; return nil
-        end
-        if c == "-" or (c >= "0" and c <= "9") then return parseNumber() end
-        err("unexpected character `" .. c .. "`")
-    end
-
-    local ok, result = pcall(parseValue)
-    if not ok then
-        return nil, tostring(result)
-    end
-    return result
-end
-
--- ----------------------------------------------------------------------------
--- Package descriptor loader & dependency resolver
--- ----------------------------------------------------------------------------
-
----@class PackageInfo
----@field name string         declared package name from nar.json
----@field repository string   canonical repo URL (e.g. github.com/.../X)
----@field dependencies table<string,string>  alias -> repo URL
----@field path string         absolute or workspace-relative directory
----@field sources string[]    every *.nar file under `path` (recursive)
----@field nativePath string|nil   path/init.lua if it exists
-
----Read `<dir>/nar.json` and return a PackageInfo. Sources and nativePath
----are populated immediately so the caller can iterate without re-walking.
----@param dir string
----@return PackageInfo|nil info, string|nil err
-local function loadPackageInfo(dir)
-    if not isDir(dir) then
-        return nil, "not a directory: " .. dir
-    end
-    local manifestPath = dir .. "/nar.json"
-    local text, rerr = readAll(manifestPath)
-    if text == nil then
-        return nil, "read " .. manifestPath .. ": " .. tostring(rerr)
-    end
-    local parsed, perr = jsonParse(text)
-    if parsed == nil then
-        return nil, "parse " .. manifestPath .. ": " .. tostring(perr)
-    end
-    if type(parsed) ~= "table" then
-        return nil, manifestPath .. ": root must be an object"
-    end
-    local name = parsed.name
-    if type(name) ~= "string" or name == "" then
-        return nil, manifestPath .. ": missing or invalid `name` (string)"
-    end
-    local repo = parsed.repository
-    if repo ~= nil and type(repo) ~= "string" then
-        return nil, manifestPath .. ": invalid `repository` (must be string)"
-    end
-    local deps = parsed.dependencies
-    if deps == nil then
-        deps = {}
-    elseif type(deps) ~= "table" then
-        return nil, manifestPath .. ": `dependencies` must be an object"
-    end
-    -- Reject the old array form explicitly so the schema migration is clear.
-    if #deps > 0 then
-        return nil, manifestPath ..
-            ": `dependencies` must be {name: repository} (got array)"
-    end
-    for k, v in pairs(deps) do
-        if type(k) ~= "string" or type(v) ~= "string" then
-            return nil, manifestPath ..
-                ": `dependencies` entries must be string -> string"
-        end
-    end
-
-    local quoted = dir:gsub('"', '\\"')
-    local sources = findLines('find "' .. quoted .. '" -type f -name "*.nar" 2>/dev/null')
-
-    local nativePath = nil
-    local initLua = dir .. "/init.lua"
-    if isFile(initLua) then
-        nativePath = initLua
-    end
-
-    return {
-        name = name,
-        repository = repo or "",
-        dependencies = deps,
-        path = dir,
-        sources = sources,
-        nativePath = nativePath,
-    }
-end
-
----Clone `repoUrl` into `destDir`. Uses `git clone --depth 1 https://<repoUrl>`.
----Creates parent directories as needed. Returns nil on success or an error
----string on failure.
----@param repoUrl string  e.g. github.com/nar-lang/Nar.Base
----@param destDir string
----@return string|nil err
-local function cloneRepo(repoUrl, destDir)
-    -- mkdir -p the parent so `git clone` can land into a fresh leaf.
-    local parent = dirname(destDir)
-    if parent ~= "" then
-        os.execute('mkdir -p "' .. parent:gsub('"', '\\"') .. '"')
-    end
-    local quotedUrl = repoUrl:gsub('"', '\\"')
-    local quotedDest = destDir:gsub('"', '\\"')
-    eprintln("lunar: cloning " .. repoUrl .. " -> " .. destDir)
-    local cmd = 'git clone --depth 1 "https://' .. quotedUrl .. '" "' ..
-        quotedDest .. '" >&2'
-    local ok = os.execute(cmd)
-    if ok ~= true and ok ~= 0 then
-        return "git clone failed for " .. repoUrl
-    end
-    return nil
-end
-
----Resolve all transitive dependencies starting from `rootPaths`. Packages
----whose `name` matches one of the roots are preferred; missing deps are
----cloned into `<cachePath>/<repository>`. Returns an ordered list with
----dependencies appearing before their dependents.
----@param rootPaths string[]
----@param cachePath string
----@return PackageInfo[]|nil ordered, string|nil err
-local function resolvePackages(rootPaths, cachePath)
-    -- Load every root first so we know which names are user-provided.
-    local roots = {}
-    local providedByName = {}
-    for _, p in ipairs(rootPaths) do
-        local info, lerr = loadPackageInfo(p)
-        if info == nil then
-            return nil, lerr
-        end
-        if providedByName[info.name] ~= nil then
-            return nil, "duplicate --package: two roots declare name `" ..
-                info.name .. "` (" .. providedByName[info.name].path ..
-                " and " .. info.path .. ")"
-        end
-        providedByName[info.name] = info
-        roots[#roots + 1] = info
-    end
-
-    local visited = {}    -- name -> true once recorded
-    local ordered = {}
-    local resolveOne     -- forward decl
-
-    resolveOne = function(info)
-        if visited[info.name] then return nil end
-        visited[info.name] = true
-        for depName, depRepo in pairs(info.dependencies) do
-            local depInfo = providedByName[depName]
-            if depInfo == nil then
-                local destDir = cachePath .. "/" .. depRepo
-                if not isDir(destDir) then
-                    local cerr = cloneRepo(depRepo, destDir)
-                    if cerr ~= nil then return cerr end
-                end
-                local loaded, lerr = loadPackageInfo(destDir)
-                if loaded == nil then
-                    return "dependency `" .. depName .. "` of `" .. info.name ..
-                        "`: " .. lerr
-                end
-                if loaded.name ~= depName then
-                    -- Soft warning is fine; mismatched alias vs declared name
-                    -- still resolves topologically.
-                    eprintln("lunar: warning: dependency alias `" .. depName ..
-                        "` does not match declared name `" .. loaded.name ..
-                        "` in " .. destDir .. "/nar.json")
-                end
-                providedByName[loaded.name] = loaded
-                depInfo = loaded
-            end
-            local rerr = resolveOne(depInfo)
-            if rerr ~= nil then return rerr end
-        end
-        ordered[#ordered + 1] = info
-        return nil
-    end
-
-    for _, info in ipairs(roots) do
-        local rerr = resolveOne(info)
-        if rerr ~= nil then
-            return nil, rerr
-        end
-    end
-
-    return ordered
-end
+-- Manifest parsing, dependency walking and git cloning all live in
+-- `lunar.compiler.packages`. The CLI just feeds it a search path (cache
+-- dir + `--dir` entries) and a list of package names.
 
 -- ----------------------------------------------------------------------------
 -- Argument expansion (globs)
@@ -590,8 +280,8 @@ end
 local function usage()
     io.stderr:write([[
 usage: lunar [-d|--debug] [-b|--bin FILE] [-r|--run MOD.DEF]
-             [-c|--cache PATH] [-p|--package PATH]... [-n|--native PATH]...
-             [<file-or-glob>...] [-- <script-args>...]
+             [-c|--cache PATH] [-D|--dir DIR]... [-p|--package NAME]...
+             [-n|--native PATH]... [<file-or-glob>...] [-- <script-args>...]
 
 Compile Nar sources and/or run a compiled program. At least one of
 `--bin` or `--run` must be given.
@@ -611,18 +301,24 @@ Flags (each long flag has a single-letter short alias):
                       `(args: List String) -> Int`. Arguments after `--`
                       become the List String; the returned Int is the
                       process exit code.
-  -c, --cache PATH    directory used to cache cloned dependencies.
-                      Defaults to ~/.nar.
-  -p, --package PATH  add an entire Nar package to the build. PATH must
-                      be a directory containing a nar.json manifest.
-                      Every *.nar file recursively under it is added as
-                      a source module, and if PATH/init.lua exists it is
-                      registered as a native module. Transitive deps
-                      declared in nar.json are resolved automatically:
-                      deps whose name matches another --package are used
-                      from there; otherwise the repository is cloned
-                      into <cache>/<repository>. May be given multiple
-                      times.
+  -c, --cache PATH    directory used to cache cloned dependencies and
+                      probed first when resolving packages by name or
+                      repository. Defaults to ~/.nar.
+  -D, --dir DIR       extra directory to probe when resolving --package
+                      entries. May be given multiple times; if none are
+                      given, `.` is used. The cache dir is always tried
+                      first, then each --dir in order.
+  -p, --package NAME  add a Nar package (by its declared `nar.json.name`)
+                      to the build. For each NAME the resolver probes
+                      `<dir>/<NAME>/nar.json` in turn across the search
+                      path (cache dir + --dir entries). Transitive deps
+                      declared in nar.json are resolved by name first,
+                      then by repository path, and finally by cloning
+                      `https://<repository>` into `<cache>/<repository>`.
+                      Every *.nar file under a resolved package is added
+                      as source; if `<package>/init.lua` exists it is
+                      registered as a native module. May be given
+                      multiple times.
   -n, --native PATH   register a native Lua module before running. PATH
                       is either a .lua file or a directory (in which
                       case /init.lua is appended). The module must
@@ -639,14 +335,14 @@ Behaviour summary:
   * no --bin and no --run                 error
 
 Examples:
-  # Compile to program.binar
+  # Compile to program.binar, finding Nar.Base in the current dir
   lunar -b program.binar -p Nar.Base
 
   # Compile and run in one shot (no file is left on disk)
-  lunar -r Hello.main -p Nar.Base Hello.nar -- one two three
+  lunar -r Hello.main -D ./packages -p Nar.Base Hello.nar -- one two three
 
   # Compile, persist bytecode, and run it
-  lunar -b hello.binar -r Hello.main -p Nar.Base Hello.nar
+  lunar -b hello.binar -r Hello.main -D ./packages -p Nar.Base Hello.nar
 
   # Run a previously-compiled bytecode
   lunar -b hello.binar -r Hello.main -n Nar.Base -n Nar.Tests \
@@ -801,7 +497,8 @@ local function main(argv)
     local runEntry = nil
     local cachePath = expandHome("~/.nar")
     local nativePaths = {}
-    local packagePaths = {}
+    local packageNames = {}
+    local searchDirs = {}
     local positional = {}
     local explicitNativeCount = 0
 
@@ -831,13 +528,20 @@ local function main(argv)
             end
             i = i + 1
             cachePath = expandHome(preArgs[i])
-        elseif a == "--package" or a == "-p" then
+        elseif a == "--dir" or a == "-D" then
             if i == #preArgs then
-                eprintln("lunar: --package requires a PATH argument")
+                eprintln("lunar: --dir requires a DIR argument")
                 return 2
             end
             i = i + 1
-            packagePaths[#packagePaths + 1] = preArgs[i]
+            searchDirs[#searchDirs + 1] = expandHome(preArgs[i])
+        elseif a == "--package" or a == "-p" then
+            if i == #preArgs then
+                eprintln("lunar: --package requires a NAME argument")
+                return 2
+            end
+            i = i + 1
+            packageNames[#packageNames + 1] = preArgs[i]
         elseif a == "--native" or a == "-n" then
             if i == #preArgs then
                 eprintln("lunar: --native requires a PATH argument")
@@ -874,32 +578,36 @@ local function main(argv)
         return 2
     end
 
-    -- Resolve each --package and its transitive dependencies. Missing deps
-    -- are cloned into `<cachePath>/<repository>`. Resolution returns the
-    -- packages in dependency-first order. Auto-discovered native paths are
-    -- appended AFTER explicit --native, so explicit registrations win when
-    -- registration order matters.
+    -- Resolve each --package and its transitive dependencies. The search
+    -- path is the cache dir followed by every --dir (defaulting to `.` if
+    -- none were given). Missing transitive deps are cloned into the cache
+    -- dir. Auto-discovered native dirs are appended AFTER explicit
+    -- --native, so explicit registrations win when registration order
+    -- matters.
     local packageSources = {}
-    if #packagePaths > 0 then
-        -- Ensure cache dir exists before any potential clone.
-        os.execute('mkdir -p "' .. cachePath:gsub('"', '\\"') .. '"')
-        local resolved, rerr = resolvePackages(packagePaths, cachePath)
-        if resolved == nil then
+    if #packageNames > 0 then
+        if #searchDirs == 0 then
+            searchDirs[1] = "."
+        end
+        local fullSearch = { cachePath }
+        for _, d in ipairs(searchDirs) do
+            fullSearch[#fullSearch + 1] = d
+        end
+        local modules, natives, rerr = Packages.collect(fullSearch, packageNames)
+        if modules == nil then
             eprintln("lunar: " .. rerr)
             return 2
         end
-        for _, info in ipairs(resolved) do
-            for _, f in ipairs(info.sources) do
-                packageSources[#packageSources + 1] = f
-            end
-            if info.nativePath ~= nil then
-                nativePaths[#nativePaths + 1] = info.nativePath
-            end
+        for _, f in ipairs(modules) do
+            packageSources[#packageSources + 1] = f
+        end
+        for _, d in ipairs(natives) do
+            nativePaths[#nativePaths + 1] = resolveNativePath(d)
         end
     end
 
     -- ---- No-sources path: run the pre-existing binary, no compilation. ----
-    if #positional == 0 and #packagePaths == 0 then
+    if #positional == 0 and #packageNames == 0 then
         if binPath == nil or runEntry == nil then
             eprintln("lunar: no source files; --bin and --run are both required" ..
                 " to run an existing binary")
