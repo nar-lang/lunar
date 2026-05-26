@@ -250,9 +250,12 @@ local function jsonParse(text)
                 elseif esc == 'f' then out[#out + 1] = '\f'
                 elseif esc == 'u' then
                     local cp = tonumber(text:sub(i, i + 3), 16)
-                    if cp == nil then err("bad \\u escape") end
-                    i = i + 4
-                    out[#out + 1] = utf8.char(cp)
+                    if cp == nil then
+                        err("bad \\u escape")
+                    else
+                        i = i + 4
+                        out[#out + 1] = utf8.char(cp)
+                    end
                 else err("bad escape \\" .. esc) end
             else
                 out[#out + 1] = c
