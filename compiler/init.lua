@@ -20,9 +20,67 @@
 local Parser        = require("lunar.compiler.parser")
 local BinaryMod     = require("lunar.compiler.bytecode.binary")
 local BinaryHashMod = require("lunar.compiler.bytecode.binary_hash")
+local Profile       = require("lunar.compiler.profile")
 
 ---@class Compiler
 local Compiler      = {}
+
+-- ----------------------------------------------------------------------------
+-- Profiling
+-- ----------------------------------------------------------------------------
+--
+-- When enabled, the full pipeline prints a per-stage / per-module timing
+-- breakdown to stderr. Enable by either setting the env var `LUNAR_PROFILE`
+-- (any non-empty value) or by assigning `Compiler.profile = true` before
+-- calling `Compiler.compile`. The flag is shared with `lunar.compiler.profile`
+-- so that individual AST passes (e.g. typed module compose) can record into
+-- the same buckets.
+
+---@return boolean
+local function _profileEnabled()
+    return Profile.enabled or Compiler.profile == true
+end
+
+local _now      = Profile.now
+local _record   = Profile.record
+local _resetAll = Profile.reset
+
+local function _eprintf(fmt, ...)
+    io.stderr:write(string.format(fmt, ...))
+end
+
+local function _printBreakdown(stagesInOrder, totalDt, sourceCount)
+    _eprintf("[lunar] compile breakdown (%d source files, %.3fs total):\n",
+        sourceCount, totalDt)
+    for _, stage in ipairs(stagesInOrder) do
+        local total = Profile.stageTotal[stage] or 0
+        _eprintf("  %-13s %7.3fs  (%5.1f%%)\n",
+            stage, total, totalDt > 0 and (100 * total / totalDt) or 0)
+        local mods = Profile.perKey[stage] or {}
+        local names = {}
+        for k in pairs(mods) do names[#names + 1] = k end
+        table.sort(names, function(a, b) return mods[a] > mods[b] end)
+        local shown = 0
+        for _, name in ipairs(names) do
+            local dt = mods[name]
+            if dt >= 0.001 and shown < 10 then
+                _eprintf("      %7.3fs  %s\n", dt, name)
+                shown = shown + 1
+            end
+        end
+        if #names > shown then
+            _eprintf("      ... (%d more)\n", #names - shown)
+        end
+    end
+end
+
+---Return a snapshot of the most recent compile's per-stage timings.
+---@return table<string, number> stageTotals
+---@return table<string, table<string, number>> perKey
+function Compiler.timings()
+    return Profile.stageTotal, Profile.perKey
+end
+
 
 -- ----------------------------------------------------------------------------
 -- parse
@@ -40,7 +98,9 @@ function Compiler.parse(fileName, content)
     if type(content) ~= "string" then
         error("parse(fileName, content): content must be a string")
     end
+    local t0 = _now()
     local module, errors = Parser.parse(fileName, content)
+    _record("parse", fileName, _now() - t0)
     return module, errors or {}
 end
 
@@ -72,7 +132,9 @@ function Compiler.normalize(parsedModules, normalizedModules)
     -- module before normalizing any of them, mirroring the Go pipeline.
     for _, n in ipairs(names) do
         if normalizedModules[n] == nil then
+            local t0 = _now()
             local errs = parsedModules[n]:generate(parsedModules)
+            _record("generate", n, _now() - t0)
             if errs ~= nil then
                 for _, e in ipairs(errs) do errors[#errors + 1] = e end
             end
@@ -81,7 +143,9 @@ function Compiler.normalize(parsedModules, normalizedModules)
 
     for _, n in ipairs(names) do
         if normalizedModules[n] == nil then
+            local t0 = _now()
             local errs = parsedModules[n]:normalize(parsedModules, normalizedModules)
+            _record("normalize", n, _now() - t0)
             if errs ~= nil then
                 for _, e in ipairs(errs) do errors[#errors + 1] = e end
             end
@@ -115,7 +179,9 @@ function Compiler.annotate(normalizedModules, typedModules)
     local errors = {}
     for _, n in ipairs(names) do
         if typedModules[n] == nil then
+            local t0 = _now()
             local errs = normalizedModules[n]:annotate(normalizedModules, typedModules)
+            _record("annotate", n, _now() - t0)
             if errs ~= nil then
                 for _, e in ipairs(errs) do errors[#errors + 1] = e end
             end
@@ -144,11 +210,15 @@ function Compiler.validate(typedModules)
     local errors = {}
     for _, n in ipairs(names) do
         local tm = typedModules[n]
+        local t0 = _now()
         local errs = tm:checkTypes()
+        _record("checkTypes", n, _now() - t0)
         if errs ~= nil then
             for _, e in ipairs(errs) do errors[#errors + 1] = e end
         end
+        t0 = _now()
         errs = tm:checkPatterns()
+        _record("checkPatterns", n, _now() - t0)
         if errs ~= nil then
             for _, e in ipairs(errs) do errors[#errors + 1] = e end
         end
@@ -179,14 +249,19 @@ function Compiler.link(typedModules, debug)
     local errors = {}
 
     for _, n in ipairs(names) do
+        local t0 = _now()
         local err = typedModules[n]:compose(typedModules, debug, binary, hash)
+        _record("compose", n, _now() - t0)
         if err ~= nil then
             errors[#errors + 1] = tostring(err)
             return nil, errors
         end
     end
 
-    return binary:build(debug), errors
+    local t0 = _now()
+    local bytes = binary:build(debug)
+    _record("build", "<binary>", _now() - t0)
+    return bytes, errors
 end
 
 -- ----------------------------------------------------------------------------
@@ -211,12 +286,20 @@ function Compiler.compile(sources, debug)
         error("compile(sources, debug): sources must be a {[fileName]=content} table")
     end
 
+    _resetAll()
+    local _profile = _profileEnabled()
+    local _tStart = _profile and _now() or 0
+    local _sourceCount = 0
+
     local errors = {}
     local parsedModules = {}
 
     -- Sort file names for deterministic error ordering.
     local fileNames = {}
-    for fileName in pairs(sources) do fileNames[#fileNames + 1] = fileName end
+    for fileName in pairs(sources) do
+        fileNames[#fileNames + 1] = fileName
+        _sourceCount = _sourceCount + 1
+    end
     table.sort(fileNames)
 
     for _, fileName in ipairs(fileNames) do
@@ -259,6 +342,15 @@ function Compiler.compile(sources, debug)
     local bytes, lerrs = Compiler.link(typedModules, debug)
     for _, e in ipairs(lerrs) do errors[#errors + 1] = e end
     if bytes == nil then return nil, errors end
+
+    if _profile then
+        _printBreakdown(
+            { "parse", "generate", "normalize", "annotate",
+              "checkTypes", "checkPatterns", "compose", "build",
+              "compose.def" },
+            _now() - _tStart,
+            _sourceCount)
+    end
 
     return bytes, errors
 end

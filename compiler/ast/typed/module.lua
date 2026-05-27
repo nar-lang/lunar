@@ -8,6 +8,7 @@ TypedModule.__index = TypedModule
 
 local builtins = require("lunar.compiler.common.builtins")
 local binaryMod = require("lunar.compiler.bytecode.binary")
+local Profile   = require("lunar.compiler.profile")
 
 ---@param location Location
 ---@param name QualifiedIdentifier
@@ -116,7 +117,9 @@ function TypedModule:compose(modules, debug, binary, hash)
         -- the "already filled" check (Go uses `ops == nil`).
         local existing = binary.funcs[ptr + 1]
         if #existing.ops == 0 and existing.numArgs == 0 and existing.name == 0 then
+            local t0 = Profile.now()
             binary.funcs[ptr + 1] = def:bytecode(pathId, self.name, binary, hash)
+            Profile.record("compose.def", pathId, Profile.now() - t0)
             if not def.hidden then
                 binary.exports[pathId] = ptr
             end
