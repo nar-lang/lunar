@@ -1,6 +1,0 @@
-module Issue.CrossAlias.Building
-
-alias Building =
-  { kind: Int
-  , label: Int
-  }

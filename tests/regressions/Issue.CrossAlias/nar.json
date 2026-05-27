@@ -1,7 +1,0 @@
-{
-  "name": "Issue.CrossAlias",
-  "repository": "github.com/example/Issue.CrossAlias",
-  "dependencies": {
-    "Nar.Base": "github.com/nar-lang/Nar.Base"
-  }
-}
