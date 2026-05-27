@@ -1,9 +1,9 @@
 #!/usr/bin/env lua
 ---Lunar CLI.
 ---
----Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--cache PATH] [--dir DIR]... [--package NAME]... [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
+---Usage: `lunar [--debug] [--bin FILE] [--run MOD.DEF] [--doc FILE] [--cache PATH] [--dir DIR]... [--package NAME]... [--native PATH]... [<file-or-glob>...] [-- <script-args>...]`
 ---
----At least one of `--bin` or `--run` is required.
+---At least one of `--bin`, `--run`, or `--doc` is required.
 ---
 ---When source files are given they are compiled. The resulting bytecode is
 ---written to `--bin FILE` if provided; if only `--run` is given, the
@@ -94,6 +94,7 @@ if _IS_MAIN then
 end
 
 local Compiler = require("lunar.compiler")
+local Docs     = require("lunar.compiler.docs")
 local Packages = require("lunar.compiler.packages")
 local Runtime  = require("lunar.runtime")
 local Object   = Runtime.Object
@@ -405,12 +406,12 @@ end
 
 local function usage()
     io.stderr:write([[
-usage: lunar [-d|--debug] [-b|--bin FILE] [-r|--run MOD.DEF]
+usage: lunar [-d|--debug] [-b|--bin FILE] [-r|--run MOD.DEF] [--doc FILE]
              [-c|--cache PATH] [-D|--dir DIR]... [-p|--package NAME]...
              [-n|--native PATH]... [<file-or-glob>...] [-- <script-args>...]
 
 Compile Nar sources and/or run a compiled program. At least one of
-`--bin` or `--run` must be given.
+`--bin`, `--run`, or `--doc` must be given.
 
 Positional arguments (before `--`):
   <file.nar>      a single source file
@@ -427,6 +428,10 @@ Flags (each long flag has a single-letter short alias):
                       `(args: List String) -> Int`. Arguments after `--`
                       become the List String; the returned Int is the
                       process exit code.
+      --doc FILE      collect top-level `///`/`/** **/` doc comments
+                      from the resolved sources and write a single
+                      Markdown file (with TOC and per-module sections)
+                      to FILE. Compilation must succeed first.
   -c, --cache PATH    directory used to cache cloned dependencies and
                       probed first when resolving packages by name or
                       repository. Defaults to ~/.nar.
@@ -621,6 +626,7 @@ local function main(argv)
     local debug = false
     local binPath = nil
     local runEntry = nil
+    local docPath = nil
     local cachePath = expandHome("~/.nar")
     local nativePaths = {}
     local packageNames = {}
@@ -647,6 +653,13 @@ local function main(argv)
             end
             i = i + 1
             runEntry = preArgs[i]
+        elseif a == "--doc" then
+            if i == #preArgs then
+                eprintln("lunar: --doc requires a FILE argument")
+                return 2
+            end
+            i = i + 1
+            docPath = preArgs[i]
         elseif a == "--cache" or a == "-c" then
             if i == #preArgs then
                 eprintln("lunar: --cache requires a PATH argument")
@@ -698,8 +711,8 @@ local function main(argv)
         return 2
     end
 
-    if binPath == nil and runEntry == nil then
-        eprintln("lunar: at least one of --bin or --run is required")
+    if binPath == nil and runEntry == nil and docPath == nil then
+        eprintln("lunar: at least one of --bin, --run, or --doc is required")
         eprintln("try `lunar --help`")
         return 2
     end
@@ -736,6 +749,10 @@ local function main(argv)
 
     -- ---- No-sources path: run the pre-existing binary, no compilation. ----
     if #positional == 0 and #packageNames == 0 then
+        if docPath ~= nil then
+            eprintln("lunar: --doc requires source files or a --package")
+            return 2
+        end
         if binPath == nil or runEntry == nil then
             eprintln("lunar: no source files; --bin and --run are both required" ..
                 " to run an existing binary")
@@ -785,6 +802,44 @@ local function main(argv)
     end
     if bytes == nil then
         return 1
+    end
+
+    -- ---- Documentation generation (optional). -------------------------
+    if docPath ~= nil then
+        -- Re-parse to obtain ParsedModule values; normalization strips
+        -- doc-comment metadata so it isn't available off the compiled
+        -- bytecode. Parsing is cheap and gives us the unprocessed AST.
+        local parsedModules = {}
+        local parseErrs = {}
+        for name, content in pairs(sources) do
+            local m, perr = Compiler.parse(name, content)
+            if perr ~= nil then
+                for _, e in ipairs(perr) do
+                    parseErrs[#parseErrs + 1] = e
+                end
+            end
+            if m ~= nil then
+                parsedModules[m.name] = m
+            end
+        end
+        if #parseErrs > 0 then
+            for _, e in ipairs(parseErrs) do eprintln(tostring(e)) end
+            return 1
+        end
+        local docPackageName = packageNames[1]
+        local md = Docs.render(Docs.collect(parsedModules), docPackageName)
+        local okw, werr = writeAll(docPath, md)
+        if not okw then
+            eprintln("lunar: write " .. docPath .. ": " .. tostring(werr))
+            return 1
+        end
+        io.write(string.format("lunar: wrote %s (%d bytes)\n",
+            docPath, #md))
+    end
+
+    -- If only --doc was requested, we're done.
+    if binPath == nil and runEntry == nil then
+        return 0
     end
 
     -- Decide bytecode output location:

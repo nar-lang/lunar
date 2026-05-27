@@ -11,6 +11,7 @@ local NormDefinition = require("lunar.compiler.ast.normalized.definition").NormD
 ---@field params Pattern[]
 ---@field body Expression?
 ---@field declaredType Type|nil
+---@field docComment DocComment|nil
 ---@field successor NormDefinition|nil
 local Definition = setmetatable({}, { __index = Statement })
 Definition.__index = Definition
@@ -33,6 +34,7 @@ function Definition.new(location, hidden, name, nameLocation, params, body, decl
         params = params or {},
         body = body,
         declaredType = declaredType,
+        docComment = nil,
     }, Definition)
 end
 

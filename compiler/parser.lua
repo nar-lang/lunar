@@ -58,6 +58,7 @@ local DataType = dataTypeMod.DataType
 local DataTypeOption = dataTypeMod.DataTypeOption
 local DataTypeValue = dataTypeMod.DataTypeValue
 local Definition = require("lunar.compiler.ast.parsed.definition").Definition
+local DocComment = require("lunar.compiler.ast.parsed.doc_comment").DocComment
 local Import = require("lunar.compiler.ast.parsed.import").Import
 local infixMod = require("lunar.compiler.ast.parsed.infix")
 local Infix = infixMod.Infix
@@ -151,6 +152,9 @@ Parser.keywords = {
 ---@field cursor integer
 ---@field text string
 ---@field log any
+---@field pendingDoc string         -- accumulated doc-comment text awaiting attachment
+---@field pendingDocLoc Location|nil -- location of the first doc comment in `pendingDoc`
+---@field consumedDocs table<integer, boolean> -- offsets of `///`/`/**` blocks already folded into `pendingDoc`
 
 ---@param filePath string
 ---@param fileContent string
@@ -162,6 +166,9 @@ function Parser.parse(filePath, fileContent)
         cursor = 1,
         text = fileContent or "",
         log = nil,
+        pendingDoc = "",
+        pendingDocLoc = nil,
+        consumedDocs = {},
     }
     return Parser.parseModule(src)
 end
@@ -268,27 +275,61 @@ function Parser.skipComment(src)
     Parser.skipWhiteSpace(src)
 
     if Parser.readSequence(src, constants.seqComment) ~= nil then
+        -- `//` already consumed. Doc-comment form `///` (third slash)?
+        local docStart = src.cursor
+        local isDoc = Parser.isOk(src) and
+            src.text:sub(src.cursor, src.cursor) == "/"
+        if isDoc then
+            src.cursor = src.cursor + 1
+            -- Skip a single leading space, if any.
+            if Parser.isOk(src) and src.text:sub(src.cursor, src.cursor) == " " then
+                src.cursor = src.cursor + 1
+            end
+        end
+        local lineStart = src.cursor
         while Parser.isOk(src) and src.text:sub(src.cursor, src.cursor) ~= constants.smbNewLine do
             src.cursor = src.cursor + 1
+        end
+        if isDoc then
+            local text = src.text:sub(lineStart, src.cursor - 1)
+            -- Strip trailing whitespace.
+            text = text:gsub("%s+$", "")
+            Parser._appendDoc(src, docStart - 2, text)
         end
         if Parser.isOk(src) then
             src.cursor = src.cursor + 1
         end
     elseif Parser.readSequence(src, constants.seqCommentStart) ~= nil then
+        -- `/*` already consumed. Doc-comment form `/** ... */`?
+        local docStart = src.cursor - 2
+        local isDoc = Parser.isOk(src) and
+            src.text:sub(src.cursor, src.cursor) == "*" and
+            -- Disambiguate from `/**/` (empty block comment).
+            src.text:sub(src.cursor + 1, src.cursor + 1) ~= "/"
+        if isDoc then
+            src.cursor = src.cursor + 1
+        end
+        local bodyStart = src.cursor
         local level = 1
+        local bodyEnd = src.cursor
         while Parser.isOk(src) do
             if Parser.readSequence(src, constants.seqCommentStart) ~= nil then
                 level = level + 1
             elseif Parser.readSequence(src, constants.seqCommentEnd) ~= nil then
                 level = level - 1
                 if level == 0 then
+                    bodyEnd = src.cursor - 2
                     break
                 end
+            else
+                src.cursor = src.cursor + 1
             end
-            src.cursor = src.cursor + 1
         end
         if level ~= 0 then
             return
+        end
+        if isDoc then
+            Parser._appendDoc(src, docStart, Parser._cleanBlockDoc(src.text:sub(bodyStart, bodyEnd - 1)))
         end
     else
         return
@@ -296,6 +337,84 @@ function Parser.skipComment(src)
 
     Parser.skipWhiteSpace(src)
     Parser.skipComment(src)
+end
+
+---Append `text` to the current pending doc-comment buffer. Consecutive
+---doc-comment lines (`///`) collapse into a single blob separated by
+---newlines; a block doc-comment is treated as one chunk.
+---
+---This is idempotent per source offset: the parser frequently backtracks
+---and re-skips the same region, but each unique `///`/`/**` block is
+---absorbed exactly once.
+---@param src ParserSource
+---@param startOffset integer  byte offset of the `///` or `/**` start (1-based)
+---@param text string
+function Parser._appendDoc(src, startOffset, text)
+    if src.consumedDocs[startOffset] then
+        return
+    end
+    src.consumedDocs[startOffset] = true
+    if src.pendingDoc == "" then
+        src.pendingDoc = text
+        src.pendingDocLoc = Location.newCursor(src.filePath, src.text, startOffset)
+    else
+        src.pendingDoc = src.pendingDoc .. "\n" .. text
+    end
+end
+
+---Strip the common `*`/whitespace prefix from each line of a block-doc body.
+---Empty lines at the top and bottom are dropped.
+---@param body string
+---@return string
+function Parser._cleanBlockDoc(body)
+    local lines = {}
+    for line in (body .. "\n"):gmatch("(.-)\n") do
+        lines[#lines + 1] = line
+    end
+    local out = {}
+    for _, line in ipairs(lines) do
+        -- Strip leading whitespace, then a single leading `*`, then a
+        -- single space (so " * foo" becomes "foo").
+        local stripped = line:gsub("^%s*", "")
+        local prefixOff = stripped:match("^%*")
+        if prefixOff ~= nil then
+            stripped = stripped:sub(2)
+            if stripped:sub(1, 1) == " " then
+                stripped = stripped:sub(2)
+            end
+        end
+        stripped = stripped:gsub("%s+$", "")
+        out[#out + 1] = stripped
+    end
+    -- Trim leading and trailing empty lines.
+    while #out > 0 and out[1] == "" do
+        table.remove(out, 1)
+    end
+    while #out > 0 and out[#out] == "" do
+        out[#out] = nil
+    end
+    return table.concat(out, "\n")
+end
+
+---Build (and clear) the pending doc-comment AST node, if any.
+---@param src ParserSource
+---@return DocComment|nil
+function Parser.takePendingDoc(src)
+    if src.pendingDoc == "" then
+        return nil
+    end
+    local node = DocComment.new(src.pendingDocLoc, src.pendingDoc)
+    src.pendingDoc = ""
+    src.pendingDocLoc = nil
+    return node
+end
+
+---Drop any pending doc-comment text without producing a node (e.g. when
+---no top-level entity follows it before EOF).
+---@param src ParserSource
+function Parser.dropPendingDoc(src)
+    src.pendingDoc = ""
+    src.pendingDocLoc = nil
 end
 
 ---@param src ParserSource
@@ -1997,6 +2116,8 @@ function Parser.parseModule(src)
     local errors = {}
 
     Parser.skipComment(src)
+    -- Drop any doc-comment text that preceded the module header.
+    Parser.dropPendingDoc(src)
 
     if not Parser.readExact(src, constants.kwModule) then
         errors[#errors + 1] = Parser.newError(src, "expected `module` keyword here")
@@ -2030,8 +2151,16 @@ function Parser.parseModule(src)
     end
 
     while true do
+        -- Capture the doc-comment block accumulated immediately before
+        -- this entity. Whichever entity parser matches first will own it.
+        -- (Doc comments that appear *inside* a previous entity's body
+        -- would also end up here; they're a misuse — `///` is meant for
+        -- top-level declarations only.)
+        local doc = Parser.takePendingDoc(src)
+
         local alias, err = Parser.parseAlias(src)
         if alias ~= nil then
+            alias.docComment = doc
             aliases[#aliases + 1] = alias
             if err == nil then
                 goto continueLoop
@@ -2046,6 +2175,7 @@ function Parser.parseModule(src)
         local infixFn
         infixFn, err = Parser.parseInfixFn(src)
         if infixFn ~= nil then
+            infixFn.docComment = doc
             infixFns[#infixFns + 1] = infixFn
             if err == nil then
                 goto continueLoop
@@ -2060,6 +2190,7 @@ function Parser.parseModule(src)
         local definition
         definition, err = Parser.parseDefinition(src, name)
         if definition ~= nil then
+            definition.docComment = doc
             definitions[#definitions + 1] = definition
             if err == nil then
                 goto continueLoop
@@ -2074,6 +2205,7 @@ function Parser.parseModule(src)
         local dataType
         dataType, err = Parser.parseDataType(src)
         if dataType ~= nil then
+            dataType.docComment = doc
             dataTypes[#dataTypes + 1] = dataType
             if err == nil then
                 goto continueLoop

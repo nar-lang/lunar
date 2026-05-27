@@ -16,6 +16,7 @@ local Associativity = {
 ---@field precedence integer
 ---@field aliasLocation Location
 ---@field alias Identifier
+---@field docComment DocComment|nil
 local Infix = setmetatable({}, { __index = Statement })
 Infix.__index = Infix
 
@@ -37,6 +38,7 @@ function Infix.new(location, hidden, name, associativity, precedence, aliasLocat
         precedence = precedence,
         aliasLocation = aliasLocation,
         alias = alias,
+        docComment = nil,
     }, Infix)
 end
 

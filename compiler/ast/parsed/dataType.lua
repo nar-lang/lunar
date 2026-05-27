@@ -121,6 +121,7 @@ end
 ---@field params Identifier[]
 ---@field options DataTypeOption[]
 ---@field nameLocation Location
+---@field docComment DocComment|nil
 local DataType = setmetatable({}, { __index = Statement })
 DataType.__index = DataType
 
@@ -140,6 +141,7 @@ function DataType.new(location, hidden, name, params, options, nameLocation)
         params = params or {},
         options = options or {},
         nameLocation = nameLocation,
+        docComment = nil,
     }, DataType)
 end
 

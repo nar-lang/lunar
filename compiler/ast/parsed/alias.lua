@@ -10,6 +10,7 @@ local TNative = require("lunar.compiler.ast.parsed.type_native").TNative
 ---@field params Identifier[]
 ---@field type Type?
 ---@field nameLocation Location
+---@field docComment DocComment|nil
 local Alias = setmetatable({}, { __index = Statement })
 Alias.__index = Alias
 
@@ -29,6 +30,7 @@ function Alias.new(location, hidden, name, params, type_, nameLocation)
         params = params or {},
         type = type_,
         nameLocation = nameLocation,
+        docComment = nil,
     }, Alias)
 end
 
