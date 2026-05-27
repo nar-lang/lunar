@@ -88,7 +88,8 @@ function TyGlobal:appendBytecode(ops, locations, binary, hash)
     local id = builtins.makeFullIdentifier(self.moduleName, self.definitionName)
     local funcIndex = hash.funcsMap[id]
     if funcIndex == nil then
-        error(string.format("global definition `%s` not found", id))
+        error(string.format("global definition `%s` not found at %s", id,
+            (self.location and self.location:cursorString() or "<unknown>")))
     end
     return bytecode.appendLoadGlobal(funcIndex, self.location, ops, locations)
 end

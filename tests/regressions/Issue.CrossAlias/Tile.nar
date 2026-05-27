@@ -1,0 +1,11 @@
+module Issue.CrossAlias.Tile
+
+import Nar.Base.Maybe exposing (Maybe)
+
+alias Tile =
+  { id: Int
+  , building: Maybe[Building]
+  }
+
+def empty: Tile =
+  { id = 0, building = Nothing }

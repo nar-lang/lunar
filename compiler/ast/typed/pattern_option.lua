@@ -61,7 +61,11 @@ function TyPOption:simplify()
         ---@cast t TyData
         return SimpleConstructor.new(t, self:name(), args)
     end
-    error("Data option pattern should have a data type.")
+    error(string.format(
+        "Data option pattern should have a data type at %s (definition: %s, got type_.kind = %s)",
+        self.location and self.location:cursorString() or "<unknown>",
+        self.definition and self.definition.name or "?",
+        t and t.kind or "nil"))
 end
 
 ---@param subst table<integer, TypedType>

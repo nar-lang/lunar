@@ -78,8 +78,18 @@ function TData:normalize(modules, module, namedTypes)
     if cached ~= nil then
         return cached, nil
     end
-    namedTypes[self.name] = NTPlaceholder.new(self.name)
 
+    -- Normalize args first WITHOUT exposing self as a placeholder yet.
+    --
+    -- This matters when an alias body reached through one of `self.args`
+    -- transitively contains another parameterisation of `self.name`
+    -- (e.g. outer `Maybe[Tile]` where `Tile` is an alias expanding to a
+    -- record with a `Maybe[Building]` field). Both refer to the same
+    -- data type by name but are different parameterisations and must
+    -- each get a fully-normalized `NTData`. Setting the placeholder
+    -- before args lets the inner reference hit the cache and collapse
+    -- onto the outer's bare `NTPlaceholder` (no args, no options),
+    -- which downstream resolves to `TUnbound`.
     local args = {}
     for i, a in ipairs(self.args) do
         local na, err = a:normalize(modules, module, namedTypes)
@@ -89,12 +99,22 @@ function TData:normalize(modules, module, namedTypes)
         ---@cast na -nil
         args[i] = na
     end
+
+    -- Now expose self as a placeholder for option-level recursion
+    -- (e.g. `type List[a] = Cons(a, List[a]) | Nil`, where the
+    -- `List[a]` inside `Cons` is a true self-reference). Save and
+    -- restore so unrelated sibling normalizations downstream do not
+    -- accidentally pick up this call's placeholder.
+    local saved = namedTypes[self.name]
+    namedTypes[self.name] = NTPlaceholder.new(self.name)
+
     local options = {}
     for i, opt in ipairs(self.options) do
         local values = {}
         for j, v in ipairs(opt.values) do
             local nv, err = v:normalize(modules, module, namedTypes)
             if err ~= nil then
+                namedTypes[self.name] = saved
                 return nil, err
             end
             ---@cast nv -nil
@@ -102,6 +122,7 @@ function TData:normalize(modules, module, namedTypes)
         end
         options[i] = NDataOption.new(opt.name, opt.hidden, values)
     end
+    namedTypes[self.name] = saved
     return self:setSuccessor(NTData.new(self.location, self.name, args, options)), nil
 end
 

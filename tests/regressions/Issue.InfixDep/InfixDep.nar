@@ -1,0 +1,15 @@
+// Regression: an infix operator usage MUST register the defining
+// module as a dependency of the using module. Otherwise the compose
+// step sorts modules alphabetically and a module using `==` (which
+// targets `Nar.Base.Basics.eq`) gets composed before Basics, hitting
+// `global definition "Nar.Base.Basics.eq" not found`.
+//
+// This package name sorts before `Nar.Base.*` and only uses infix
+// operators from `Nar.Base.Basics` (no `max`, `not`, `compare`, etc.),
+// so the bug deterministically reproduces if dependency tracking is
+// not added for infix lookups in `expression_binOp.lua`.
+
+module Issue.InfixDep
+
+def eqInt(a: Int, b: Int) -> Bool =
+  a == b

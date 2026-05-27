@@ -1,0 +1,7 @@
+{
+  "name": "Issue.InfixDep",
+  "repository": "github.com/example/Issue.InfixDep",
+  "dependencies": {
+    "Nar.Base": "github.com/nar-lang/Nar.Base"
+  }
+}

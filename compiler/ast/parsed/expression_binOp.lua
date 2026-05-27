@@ -162,6 +162,15 @@ function BinOp:normalize(locals, modules, module, normalizedModule)
                 return nil, err
             end
         end
+        -- Infix operators resolve to a definition in module `m` via
+        -- `findInfixFn`. That lookup path bypasses
+        -- `findDefinitionAndAddDependency`, so we must register the
+        -- dependency explicitly here. Without this, `link` may try to
+        -- emit a reference to `m.alias` before module `m` has been
+        -- composed (when composing in alphabetical name order), and
+        -- the bytecode global lookup fails with
+        --   global definition `<m>.<alias>` not found
+        normalizedModule:addDependencies(m.name, infixA.alias)
         return NApply.new(
             self.location,
             NGlobal.new(self.location, m.name, infixA.alias),
