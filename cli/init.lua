@@ -623,6 +623,16 @@ local function main(argv)
 
     local preArgs, scriptArgs = splitOnDoubleDash(argv)
 
+    -- `--lsp` short-circuits the normal compile/run pipeline: when set
+    -- we hand off to the JSON-RPC server loop and never return.
+    for _, a in ipairs(preArgs) do
+        if a == "--lsp" then
+            local Lsp = require("lunar.lsp")
+            Lsp.run()
+            return 0
+        end
+    end
+
     local debug = false
     local binPath = nil
     local runEntry = nil
