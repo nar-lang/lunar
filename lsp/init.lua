@@ -113,6 +113,13 @@ local moduleIndex = {}
 -- Recorded workspace roots (filesystem paths).
 local workspaceRoots = {}
 
+-- Workspace-wide typed AST cache. These are lazily rebuilt on demand
+-- whenever a navigation request needs semantic information. Any edit
+-- invalidates the entire cache (cheap correctness; can optimize later).
+local typedDirty       = true
+local normalizedCache  = {} -- moduleName -> NormalizedModule
+local typedCache       = {} -- moduleName -> TypedModule
+
 ---Re-parse a single file's text and refresh its cache entry.
 ---@param path string
 ---@param text string
@@ -130,6 +137,34 @@ local function reparse(path, text)
     if m ~= nil then
         moduleIndex[m.name] = path
     end
+    -- Any edit invalidates downstream semantic info.
+    typedDirty      = true
+    normalizedCache = {}
+    typedCache      = {}
+end
+
+---Ensure the normalize + annotate stages have been run for every parsed
+---module currently in the workspace. Errors are swallowed: partial typed
+---modules are still useful for navigation. Safe to call repeatedly — the
+---compiler skips already-populated entries.
+local function ensureTyped()
+    if not typedDirty then return end
+    typedDirty = false
+    local parsedModules = {}
+    for _, entry in pairs(docs) do
+        local m = entry.parsedModule
+        if m ~= nil then
+            parsedModules[m.name] = m
+        end
+    end
+    -- The pipeline mutates `parsedModules` (calls `:generate`/`:normalize`
+    -- which can install fields on the parsed nodes). That is harmless.
+    pcall(Compiler.normalize, parsedModules, normalizedCache)
+    pcall(Compiler.annotate, normalizedCache, typedCache)
+    -- Validation runs the Hindley-Milner unifier so that hover can render
+    -- solved types (e.g. `Char` instead of `u_1`). Failures here are
+    -- non-fatal: partial typing is still navigable.
+    pcall(Compiler.validate, typedCache)
 end
 
 ---Walk `dir` recursively, returning every `.nar` file found.
@@ -161,6 +196,120 @@ local function readFile(path)
     return content
 end
 
+---Find every `nar.json` under `dir` (any depth).
+---@param dir string
+---@return string[]
+local function scanManifests(dir)
+    local out = {}
+    local cmd = string.format(
+        "find %q -type f -name 'nar.json' -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.build/*' 2>/dev/null",
+        dir)
+    local p = io.popen(cmd, "r")
+    if p == nil then return out end
+    for line in p:lines() do out[#out + 1] = line end
+    p:close()
+    return out
+end
+
+---Lazy require to avoid a cycle when the LSP module is loaded outside a
+---compile context.
+local Packages = require("lunar.compiler.packages")
+
+---Expand `~` in a path.
+local function expandHome(p)
+    if p == "~" then return os.getenv("HOME") or p end
+    if p:sub(1, 2) == "~/" then
+        local h = os.getenv("HOME"); if h == nil then return p end
+        return h .. p:sub(2)
+    end
+    return p
+end
+
+---Locate a dependency package directory by name + repo URL. Searches
+---workspace roots first (in case the user has the dep checked out as a
+---sibling), then the lunar CLI cache (`~/.nar/<url>`). Returns the dir
+---containing the matching `nar.json`, or nil.
+---@param name string
+---@param url string|nil
+---@param searchDirs string[]
+---@return string|nil
+local function locatePackageDir(name, url, searchDirs)
+    local function isFile(p) local f = io.open(p, "rb"); if f then f:close(); return true end; return false end
+    local function manifestNameMatches(dir, expected)
+        local m = readFile(dir .. "/nar.json"); if m == nil then return false end
+        local parsed = Packages.parseJson(m)
+        if type(parsed) ~= "table" then return false end
+        return parsed.name == expected
+    end
+    for _, base in ipairs(searchDirs) do
+        local cand = base .. "/" .. name
+        if isFile(cand .. "/nar.json") and manifestNameMatches(cand, name) then
+            return cand
+        end
+        if url ~= nil and url ~= "" then
+            local cand2 = base .. "/" .. url
+            if isFile(cand2 .. "/nar.json") and manifestNameMatches(cand2, name) then
+                return cand2
+            end
+        end
+    end
+    return nil
+end
+
+---Discover every package directory reachable from the manifests under
+---`roots` (transitive dependencies, read from the lunar cache). Returns
+---a deduplicated list of package directories (newly added beyond the
+---workspace roots themselves).
+---@param roots string[]
+---@return string[]
+local function resolveDependencyDirs(roots)
+    local searchDirs = {}
+    for _, r in ipairs(roots) do searchDirs[#searchDirs + 1] = r end
+    searchDirs[#searchDirs + 1] = expandHome("~/.nar")
+
+    -- Start from every nar.json found anywhere under any workspace root.
+    local manifestQueue = {}
+    local seenManifest = {}
+    for _, r in ipairs(roots) do
+        for _, mpath in ipairs(scanManifests(r)) do
+            if not seenManifest[mpath] then
+                seenManifest[mpath] = true
+                manifestQueue[#manifestQueue + 1] = mpath
+            end
+        end
+    end
+
+    local discoveredDirs = {}
+    local seenPkg = {}
+
+    local i = 1
+    while i <= #manifestQueue do
+        local mpath = manifestQueue[i]
+        i = i + 1
+        local text = readFile(mpath)
+        if text ~= nil then
+            local ok, parsed = pcall(Packages.parseJson, text)
+            if ok and type(parsed) == "table" and type(parsed.dependencies) == "table" then
+                for depName, depUrl in pairs(parsed.dependencies) do
+                    if not seenPkg[depName] then
+                        seenPkg[depName] = true
+                        local depDir = locatePackageDir(depName, depUrl, searchDirs)
+                        if depDir ~= nil then
+                            discoveredDirs[#discoveredDirs + 1] = depDir
+                            local depManifest = depDir .. "/nar.json"
+                            if not seenManifest[depManifest] then
+                                seenManifest[depManifest] = true
+                                manifestQueue[#manifestQueue + 1] = depManifest
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return discoveredDirs
+end
+
 ---Parse every `.nar` file under `root` into the document store.
 ---@param root string
 local function indexWorkspace(root)
@@ -170,6 +319,23 @@ local function indexWorkspace(root)
             local content = readFile(path)
             if content ~= nil then
                 reparse(path, content)
+            end
+        end
+    end
+end
+
+---Parse every `.nar` file under each declared dependency directory.
+---Called after the initial workspace scan so we can resolve manifests
+---against everything available locally.
+---@param roots string[]
+local function indexDependencies(roots)
+    for _, dep in ipairs(resolveDependencyDirs(roots)) do
+        for _, path in ipairs(scanNarFiles(dep)) do
+            if docs[path] == nil then
+                local content = readFile(path)
+                if content ~= nil then
+                    reparse(path, content)
+                end
             end
         end
     end
@@ -385,6 +551,349 @@ local function lookupSymbol(name, preferModule)
 end
 
 -- ----------------------------------------------------------------------------
+-- Typed-AST resolver (position-based)
+-- ----------------------------------------------------------------------------
+
+-- The typed AST carries binding information that the parser cannot: a
+-- `TyLocal` knows its declaring pattern, a `TyGlobal` knows the resolved
+-- module + definition name, a `TyConstructor` knows its data type, and so
+-- on. We walk the typed module to find the innermost expression / pattern
+-- whose location contains the cursor, then map that node to a symbol the
+-- rest of the LSP can hand back to the client.
+
+---@param loc Location|nil
+---@param offset integer
+---@return boolean
+local function locContainsOffset(loc, offset)
+    if loc == nil or loc.start == nil or loc.finish == nil then return false end
+    -- Treat the end as inclusive of one extra byte so the cursor sitting
+    -- right after the last char of a token still hits it.
+    return loc.start <= offset and offset <= loc.finish
+end
+
+---Smaller location = "more specific" hit; prefer deeper matches.
+---@param a Location
+---@param b Location
+---@return boolean true if a is a tighter (smaller) match than b
+local function tighter(a, b)
+    return (a.finish - a.start) < (b.finish - b.start)
+end
+
+-- Forward declarations.
+local visitExpr, visitPattern
+
+---@param node table|nil
+---@param offset integer
+---@param best table  -- { node?, kind? } updated in-place with the best hit
+local function visitNode(node, offset, best)
+    if node == nil then return end
+    local loc = node.location
+    if not locContainsOffset(loc, offset) then return end
+    if best.node == nil or tighter(loc, best.node.location) then
+        best.node = node
+    end
+    -- Descend into children.
+    local k = node.kind
+    if k == nil then return end
+    -- Expression kinds
+    if     k == "TyApply" then
+        visitNode(node.func, offset, best)
+        for _, a in ipairs(node.args or {}) do visitNode(a, offset, best) end
+    elseif k == "TyCall" then
+        for _, a in ipairs(node.args or {}) do visitNode(a, offset, best) end
+    elseif k == "TyConstructor" then
+        for _, a in ipairs(node.args or {}) do visitNode(a, offset, best) end
+    elseif k == "TyAccess" then
+        visitNode(node.record, offset, best)
+    elseif k == "TyLet" then
+        visitNode(node.pattern, offset, best)
+        visitNode(node.value, offset, best)
+        visitNode(node.body, offset, best)
+    elseif k == "TyList" then
+        for _, it in ipairs(node.items or {}) do visitNode(it, offset, best) end
+    elseif k == "TyTuple" then
+        for _, it in ipairs(node.items or {}) do visitNode(it, offset, best) end
+    elseif k == "TyRecord" then
+        for _, f in ipairs(node.fields or {}) do
+            -- TyRecordField has its own location covering "name = value"
+            if locContainsOffset(f.location, offset) then
+                if best.node == nil or tighter(f.location, best.node.location) then
+                    best.node = { kind = "TyRecordFieldDecl", location = f.location,
+                                  fieldName = f.name }
+                end
+                visitNode(f.value, offset, best)
+            end
+        end
+    elseif k == "TyUpdate" then
+        for _, f in ipairs(node.fields or {}) do
+            if locContainsOffset(f.location, offset) then
+                if best.node == nil or tighter(f.location, best.node.location) then
+                    best.node = { kind = "TyRecordFieldDecl", location = f.location,
+                                  fieldName = f.name }
+                end
+                visitNode(f.value, offset, best)
+            end
+        end
+    elseif k == "TySelect" then
+        visitNode(node.condition, offset, best)
+        for _, c in ipairs(node.cases or {}) do
+            if locContainsOffset(c.location, offset) then
+                visitNode(c.pattern, offset, best)
+                visitNode(c.expression, offset, best)
+            end
+        end
+    -- Pattern kinds
+    elseif k == "TyPAlias" then
+        visitNode(node.nested, offset, best)
+    elseif k == "TyPCons" then
+        visitNode(node.head, offset, best)
+        visitNode(node.tail, offset, best)
+    elseif k == "TyPList" then
+        for _, it in ipairs(node.items or {}) do visitNode(it, offset, best) end
+    elseif k == "TyPTuple" then
+        for _, it in ipairs(node.items or {}) do visitNode(it, offset, best) end
+    elseif k == "TyPOption" then
+        for _, a in ipairs(node.args or {}) do visitNode(a, offset, best) end
+    elseif k == "TyPRecord" then
+        for _, f in ipairs(node.fields or {}) do
+            if locContainsOffset(f.location, offset) then
+                if best.node == nil or tighter(f.location, best.node.location) then
+                    best.node = { kind = "TyPRecordFieldDecl", location = f.location,
+                                  fieldName = f.name }
+                end
+            end
+        end
+    end
+    -- TyLocal / TyGlobal / TyConst / TyPNamed / TyPAny / TyPConst: leaves.
+end
+
+---Walk a typed module looking for the innermost node containing `offset`
+---in the file at `path`.
+---@param typedModule table
+---@param path string
+---@param offset integer
+---@return table|nil node          the innermost typed node hit
+---@return table|nil enclosingDef  the TypedDefinition whose body contains it
+local function findNodeAt(typedModule, path, offset)
+    if typedModule == nil then return nil, nil end
+    local best = { node = nil }
+    local enclosingDef = nil
+    for _, d in ipairs(typedModule.definitions or {}) do
+        if d.location and d.location.filePath == path
+           and locContainsOffset(d.location, offset) then
+            enclosingDef = d
+            -- Look in the param patterns first, then the body.
+            for _, p in ipairs(d.params or {}) do
+                visitNode(p, offset, best)
+            end
+            visitNode(d.body, offset, best)
+            -- Also catch hits on the def name itself.
+            if d.nameLocation and locContainsOffset(d.nameLocation, offset) then
+                if best.node == nil or tighter(d.nameLocation, best.node.location) then
+                    best.node = { kind = "TyDefName", location = d.nameLocation,
+                                  definition = d, moduleName = typedModule.name }
+                end
+            end
+        end
+    end
+    return best.node, enclosingDef
+end
+
+---Translate a typed-AST hit into a `SymbolEntry` from `allSymbols()`,
+---which the existing hover / definition / references handlers can render.
+---Returns nil if the node has no resolvable target (e.g. a literal).
+---@param node table
+---@return SymbolEntry|nil
+---@return table|nil localPattern  for TyLocal -- pattern in same file
+local function nodeToSymbol(node)
+    if node == nil then return nil end
+    local k = node.kind
+
+    if k == "TyGlobal" then
+        -- Find the symbol by qualified name.
+        local fqn = node.moduleName .. "." .. node.definitionName
+        local matches = lookupSymbol(fqn, node.moduleName)
+        return matches[1]
+    end
+
+    if k == "TyLocal" then
+        -- Local binding: target is a TypedPattern in the same file.
+        -- We don't have a SymbolEntry for it; return a synthetic entry.
+        local target = node.target
+        if target == nil then return nil end
+        local loc = target.location
+        if loc == nil then return nil end
+        return {
+            name = tostring(node.name),
+            moduleName = "(local)",
+            path = loc.filePath,
+            kind = "local",
+            hidden = false,
+            doc = nil,
+            location = loc,
+            fullLocation = loc,
+            raw = target,
+        }, target
+    end
+
+    if k == "TyPNamed" or k == "TyPAlias" then
+        -- Pattern that declares a local binding: clicking on the
+        -- declaration itself hovers/jumps to itself.
+        local loc = node.location
+        local name = (k == "TyPNamed") and node.name or node.alias
+        return {
+            name = tostring(name),
+            moduleName = "(local)",
+            path = loc.filePath,
+            kind = "local",
+            hidden = false,
+            doc = nil,
+            location = loc,
+            fullLocation = loc,
+            raw = node,
+        }, node
+    end
+
+    if k == "TyConstructor" or k == "TyPOption" then
+        -- dataName is "Module.TypeName"; optionName is the variant.
+        local dataName = node.dataName
+        local optionName = node.optionName or (node.definition and node.definition.name)
+        if dataName == nil or optionName == nil then return nil end
+        local modName, typeName = dataName:match("^(.+)%.([^%.]+)$")
+        if modName == nil then return nil end
+        -- Find the type, then the option inside it.
+        for _, sym in ipairs(allSymbols()) do
+            if sym.kind == "constructor"
+               and sym.moduleName == modName
+               and sym.parentType == typeName
+               and sym.name == optionName then
+                return sym
+            end
+        end
+        return nil
+    end
+
+    if k == "TyDefName" then
+        local d = node.definition
+        for _, sym in ipairs(allSymbols()) do
+            if sym.moduleName == node.moduleName and sym.name == d.name
+               and (sym.kind == "def" or sym.kind == "infix") then
+                return sym
+            end
+        end
+        return nil
+    end
+
+    -- TyAccess / TyRecordFieldDecl / TyPRecordFieldDecl have no top-level
+    -- symbol to navigate to today; we may add field-resolution later.
+    return nil
+end
+
+---Convenience: resolve a cursor position to its symbol via the typed AST.
+---Returns nil if the file isn't parseable or no typed node covers the
+---cursor (caller can fall back to name-based lookup).
+---@param path string
+---@param offset integer
+---@return SymbolEntry|nil sym
+---@return table|nil localPatternIfLocal
+local function resolveAt(path, offset)
+    ensureTyped()
+    local entry = docs[path]
+    if entry == nil or entry.parsedModule == nil then return nil end
+    local tm = typedCache[entry.parsedModule.name]
+    if tm == nil then return nil end
+    local node = findNodeAt(tm, path, offset)
+    if node == nil then return nil end
+    local sym, localPat = nodeToSymbol(node)
+    return sym, localPat, node
+end
+
+---Find every usage of a definition (or local) across the workspace by
+---walking the typed AST and comparing resolved targets rather than text.
+---@param target SymbolEntry
+---@return table[] locations  list of LSP Location objects
+local function findReferences(target)
+    ensureTyped()
+    local out = {}
+    local function add(loc)
+        local r = locToRange(loc)
+        if r ~= nil then
+            out[#out + 1] = { uri = pathToUri(loc.filePath), range = r }
+        end
+    end
+
+    -- Local binding: scan only the file containing the pattern.
+    if target.kind == "local" then
+        local entry = docs[target.path]
+        local tm
+        if entry ~= nil and entry.parsedModule ~= nil then
+            tm = typedCache[entry.parsedModule.name]
+        end
+        if tm == nil then return out end
+        local pat = target.raw
+        local function walk(n)
+            if n == nil then return end
+            if n.kind == "TyLocal" and n.target == pat then add(n.location) end
+            -- Reuse visitNode's child-descent by hand; but simpler to
+            -- inline a generic walker:
+            for _, k in ipairs({ "func","record","value","body","head","tail",
+                                 "nested","condition","pattern","expression" }) do
+                if n[k] ~= nil then walk(n[k]) end
+            end
+            for _, list in ipairs({ "args","items","fields","cases","params" }) do
+                if n[list] ~= nil then
+                    for _, c in ipairs(n[list]) do walk(c) end
+                end
+            end
+        end
+        for _, d in ipairs(tm.definitions or {}) do
+            for _, p in ipairs(d.params or {}) do walk(p) end
+            walk(d.body)
+        end
+        -- Always include the declaration site itself.
+        add(pat.location)
+        return out
+    end
+
+    -- Global symbol: scan every typed module.
+    local fqnModule = target.moduleName
+    local fqnName   = target.name
+    local function walk(n)
+        if n == nil then return end
+        if n.kind == "TyGlobal"
+           and n.moduleName == fqnModule
+           and n.definitionName == fqnName then
+            add(n.location)
+        elseif (n.kind == "TyConstructor" or n.kind == "TyPOption")
+               and target.kind == "constructor"
+               and n.dataName
+               and n.dataName == fqnModule .. "." .. (target.parentType or "")
+               and (n.optionName == fqnName
+                    or (n.definition and n.definition.name == fqnName)) then
+            add(n.location)
+        end
+        for _, k in ipairs({ "func","record","value","body","head","tail",
+                             "nested","condition","pattern","expression" }) do
+            if n[k] ~= nil then walk(n[k]) end
+        end
+        for _, list in ipairs({ "args","items","fields","cases","params" }) do
+            if n[list] ~= nil then
+                for _, c in ipairs(n[list]) do walk(c) end
+            end
+        end
+    end
+    for _, tm in pairs(typedCache) do
+        for _, d in ipairs(tm.definitions or {}) do
+            for _, p in ipairs(d.params or {}) do walk(p) end
+            walk(d.body)
+        end
+    end
+    -- Always include the declaration site itself.
+    if target.location then add(target.location) end
+    return out
+end
+
+-- ----------------------------------------------------------------------------
 -- Signature rendering (re-used from the markdown docs generator)
 -- ----------------------------------------------------------------------------
 
@@ -466,6 +975,12 @@ local function symbolSignature(sym)
     if sym.kind == "alias" then return aliasSignature(sym.raw)     end
     if sym.kind == "type"  then return dataTypeSignature(sym.raw)  end
     if sym.kind == "infix" then return infixSignature(sym.raw)     end
+    if sym.kind == "local" then
+        -- Render the binding pattern with its inferred type.
+        local pat = sym.raw
+        local typeText = (pat and pat.type_ and pat.type_.code) and pat.type_:code("") or "?"
+        return sym.name .. " : " .. typeText
+    end
     if sym.kind == "constructor" then
         local optName = sym.raw.name
         if #(sym.raw.values or {}) == 0 then
@@ -541,8 +1056,10 @@ local function makeHover(sym)
         lines[#lines + 1] = ""
         lines[#lines + 1] = sym.doc
     end
-    lines[#lines + 1] = ""
-    lines[#lines + 1] = "_from `" .. sym.moduleName .. "`_"
+    if sym.kind ~= "local" then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = "_from `" .. sym.moduleName .. "`_"
+    end
     return {
         contents = {
             kind  = "markdown",
@@ -571,6 +1088,10 @@ function handlers.initialize(params)
         roots[#roots + 1] = params.rootPath
     end
     for _, r in ipairs(roots) do indexWorkspace(r) end
+    -- Resolve dependencies declared in any workspace `nar.json` and index
+    -- their source files too (e.g. `~/.nar/<repo>/...`). Otherwise hover /
+    -- definition can't see anything outside the user's own packages.
+    indexDependencies(roots)
 
     return {
         capabilities = {
@@ -666,6 +1187,13 @@ handlers["textDocument/hover"] = function(params)
     if entry == nil then return Json.NULL end
     local offset = positionToOffset(entry.text,
         params.position.line, params.position.character)
+
+    -- Prefer typed-AST resolution (knows about local bindings, scopes,
+    -- and qualified references). Fall back to name-based lookup if the
+    -- file isn't typeable (mid-edit / parse errors).
+    local sym = resolveAt(path, offset)
+    if sym ~= nil then return makeHover(sym) end
+
     local word = wordAtOffset(entry.text, offset)
     if word == nil then return Json.NULL end
     local prefer = entry.parsedModule and entry.parsedModule.name or nil
@@ -682,15 +1210,26 @@ handlers["textDocument/definition"] = function(params)
     if entry == nil then return Json.NULL end
     local offset = positionToOffset(entry.text,
         params.position.line, params.position.character)
+
+    -- Typed AST first.
+    local sym = resolveAt(path, offset)
+    if sym ~= nil then
+        local loc = sym.fullLocation or sym.location
+        local r = locToRange(loc)
+        if r ~= nil then
+            return { { uri = pathToUri(sym.path), range = r } }
+        end
+    end
+
     local word = wordAtOffset(entry.text, offset)
     if word == nil then return Json.EMPTY_ARRAY end
     local prefer = entry.parsedModule and entry.parsedModule.name or nil
     local matches = lookupSymbol(word, prefer)
     local locs = {}
-    for _, sym in ipairs(matches) do
-        local r = locToRange(sym.fullLocation or sym.location)
+    for _, s in ipairs(matches) do
+        local r = locToRange(s.fullLocation or s.location)
         if r ~= nil then
-            locs[#locs + 1] = { uri = pathToUri(sym.path), range = r }
+            locs[#locs + 1] = { uri = pathToUri(s.path), range = r }
         end
     end
     if #locs == 0 then return Json.EMPTY_ARRAY end
@@ -730,9 +1269,18 @@ handlers["textDocument/references"] = function(params)
     if entry == nil then return Json.EMPTY_ARRAY end
     local offset = positionToOffset(entry.text,
         params.position.line, params.position.character)
+
+    -- Typed AST first: resolves to exactly the right binding/global and
+    -- collects every reference to *that* target across the workspace.
+    local sym = resolveAt(path, offset)
+    if sym ~= nil then
+        local locs = findReferences(sym)
+        if #locs > 0 then return locs end
+    end
+
+    -- Fallback: legacy text-based search.
     local word = wordAtOffset(entry.text, offset)
     if word == nil then return Json.EMPTY_ARRAY end
-    -- Use the bare name (drop module qualifier) for the text search.
     local bare = word:match("([^%.]+)$") or word
 
     local locs = {}
