@@ -130,6 +130,7 @@ end
 ---@class SolvingContext
 ---@field annotations table[]
 ---@field groups TypeGroup[]
+---@field ubToGroup table<integer, TypeGroup>  -- ub.index -> owning group; O(1) lookup
 ---@field numSolvedTypes integer
 local SolvingContext = {}
 SolvingContext.__index = SolvingContext
@@ -139,6 +140,7 @@ function SolvingContext.new()
     return setmetatable({
         annotations = {},
         groups = {},
+        ubToGroup = {},
         numSolvedTypes = 0,
     }, SolvingContext)
 end
@@ -194,7 +196,12 @@ function SolvingContext:newAnnotatedConstraint(stmt, predecessor, name)
     ---@cast loc Location
     local type_ = newTUnbound(loc, predecessor, index, constraint, name)
     local tg, _err = newTypeGroup(nil, type_, loc)
-    self.groups[#self.groups + 1] = tg
+    tg.idx = #self.groups + 1
+    self.groups[tg.idx] = tg
+    -- Reverse index: every ub absorbed by the new group maps to it.
+    for ub in pairs(tg.unbound) do
+        self.ubToGroup[ub] = tg
+    end
     return type_
 end
 
@@ -250,10 +257,9 @@ end
 ---@return Equation[]|nil eqs
 ---@return string|nil err
 function SolvingContext:specialize(ub, type_, loc)
-    for _, tg in ipairs(self.groups) do
-        if tg:containsUnbound(ub) then
-            return tg:specialize(type_, loc)
-        end
+    local tg = self.ubToGroup[ub.index]
+    if tg ~= nil then
+        return tg:specialize(type_, loc)
     end
     return nil, string.format("cannot find annotation of `%s`", ub:code(""))
 end
@@ -264,39 +270,39 @@ end
 ---@return Equation[]|nil eqs
 ---@return string|nil err
 function SolvingContext:merge(l, r, loc)
-    ---@type Equation[]
-    local additional = {}
-    local i = 1
-    while i <= #self.groups do
-        local tga = self.groups[i]
-        if tga:containsUnbound(l) then
-            local j = #self.groups
-            while j >= 1 do
-                if j ~= i then
-                    local tgb = self.groups[j]
-                    if tgb:containsUnbound(r) then
-                        local eqs, err = tga:merge(tgb, loc)
-                        if err ~= nil then
-                            return nil, err
-                        end
-                        ---@cast eqs -nil
-                        if eqs ~= nil then
-                            for _, eq in ipairs(eqs) do
-                                additional[#additional + 1] = eq
-                            end
-                        end
-                        table.remove(self.groups, j)
-                        if j < i then
-                            i = i - 1
-                        end
-                    end
-                end
-                j = j - 1
-            end
-        end
-        i = i + 1
+    local tga = self.ubToGroup[l.index]
+    local tgb = self.ubToGroup[r.index]
+    if tga == nil or tgb == nil then
+        return {}, nil
     end
-    return additional, nil
+    if tga == tgb then
+        -- Already in the same group; nothing to do.
+        return {}, nil
+    end
+
+    local eqs, err = tga:merge(tgb, loc)
+    if err ~= nil then
+        return nil, err
+    end
+
+    -- All ubs that were in tgb now live in tga; update the reverse index.
+    for ub in pairs(tgb.unbound) do
+        self.ubToGroup[ub] = tga
+    end
+
+    -- Swap-pop tgb out of self.groups in O(1).
+    local groups = self.groups
+    local lastIdx = #groups
+    local idx = tgb.idx
+    if idx ~= lastIdx then
+        local last = groups[lastIdx]
+        groups[idx] = last
+        last.idx = idx
+    end
+    groups[lastIdx] = nil
+    tgb.idx = nil
+
+    return eqs or {}, nil
 end
 
 ---@param eq Equation

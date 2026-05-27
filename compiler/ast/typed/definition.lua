@@ -8,6 +8,7 @@ local builtins = require("lunar.compiler.common.builtins")
 local bytecode = require("lunar.compiler.bytecode.op")
 local binaryMod = require("lunar.compiler.bytecode.binary")
 local utils = require("lunar.compiler.ast.typed.utils")
+local Profile = require("lunar.compiler.profile")
 
 ---@class TypedDefinition : TypedStatement
 ---@field kind "TypedDefinition"
@@ -79,19 +80,33 @@ end
 function TypedDefinition:solveTypes(stack)
     stack = stack or {}
     stack[#stack + 1] = self
+
+    local t0 = Profile.now()
     local eqs, err = self:appendEquations({}, nil, {}, self.ctx, stack)
+    Profile.record("ct.appendEqs", self.name, Profile.now() - t0)
     if err ~= nil then
         return err
     end
     ---@cast eqs -nil
+    t0 = Profile.now()
     eqs = appendUsefulEquations({}, eqs)
+    Profile.record("ct.usefulEqs", self.name, Profile.now() - t0)
+
+    t0 = Profile.now()
     eqs, err = self.ctx:insertAll(eqs)
+    Profile.record("ct.insertAll", self.name, Profile.now() - t0)
     if err ~= nil then
         return err
     end
     ---@cast eqs -nil
+
+    t0 = Profile.now()
     local subst = self.ctx:subst()
+    Profile.record("ct.subst", self.name, Profile.now() - t0)
+
+    t0 = Profile.now()
     err = self:mapTypes(subst)
+    Profile.record("ct.mapTypes", self.name, Profile.now() - t0)
     if err ~= nil then
         return err
     end

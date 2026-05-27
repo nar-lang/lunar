@@ -346,7 +346,10 @@ function Compiler.compile(sources, debug)
     if _profile then
         _printBreakdown(
             { "parse", "generate", "normalize", "annotate",
-              "checkTypes", "checkPatterns", "compose", "build",
+              "checkTypes",
+              "ct.appendEqs", "ct.usefulEqs", "ct.insertAll",
+              "ct.subst", "ct.mapTypes",
+              "checkPatterns", "compose", "build",
               "compose.def" },
             _now() - _tStart,
             _sourceCount)

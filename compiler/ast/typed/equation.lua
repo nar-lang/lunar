@@ -59,8 +59,11 @@ function Equation:isRedundant()
     return self.left:equalsTo(self.right, nil)
 end
 
----Filter useful equations: drop redundant + duplicates already present in
----`eqs`. Returns mutated `eqs`.
+---Filter useful equations: drop redundant equations. Duplicate detection
+---against `eqs` is intentionally skipped: it was O(extra × eqs × type-eq)
+---and dominated `insertAll`. The unification step now lives behind a
+---reverse index (see SolvingContext.merge/specialize), so re-presenting an
+---already-merged equation is a no-op rather than wasted work.
 ---@param eqs Equation[]
 ---@param extra Equation[]
 ---@return Equation[]
@@ -70,16 +73,7 @@ local function appendUsefulEquations(eqs, extra)
     end
     for _, eq in ipairs(extra) do
         if not eq:isRedundant() then
-            local dup = false
-            for _, x in ipairs(eqs) do
-                if x:equalsTo(eq) then
-                    dup = true
-                    break
-                end
-            end
-            if not dup then
-                eqs[#eqs + 1] = eq
-            end
+            eqs[#eqs + 1] = eq
         end
     end
     return eqs
