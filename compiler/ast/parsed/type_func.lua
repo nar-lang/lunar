@@ -1,5 +1,6 @@
 local Type = require("lunar.compiler.ast.parsed.type").Type
 local NTFunc = require("lunar.compiler.ast.normalized.type_func").NTFunc
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class TFunc : Type
 ---@field kind "TFunc"
@@ -58,7 +59,7 @@ function TFunc:normalize(modules, module, namedTypes)
     local params = {}
     for i, p in ipairs(self.params) do
         if p == nil then
-            return nil, "missing parameter type annotation"
+            return nil, utils.locErr(self.location, "missing parameter type annotation")
         end
         local np, err = p:normalize(modules, module, namedTypes)
         if err ~= nil then
@@ -68,11 +69,11 @@ function TFunc:normalize(modules, module, namedTypes)
         params[i] = np
     end
     if self.return_ == nil then
-        return nil, "missing return type annotation"
+        return nil, utils.locErr(self.location, "missing return type annotation")
     end
     local ret, err = self.return_:normalize(modules, module, namedTypes)
     if err ~= nil or ret == nil then
-        return nil, err or "failed to normalize return type"
+        return nil, err or utils.locErr(self.location, "failed to normalize return type")
     end
     return self:setSuccessor(NTFunc.new(self.location, params, ret)), nil
 end
@@ -85,7 +86,7 @@ function TFunc:applyArgs(params, loc)
     local fnParams = {}
     for i, p in ipairs(self.params) do
         if p == nil then
-            return nil, "missing parameter type annotation"
+            return nil, utils.locErr(self.location, "missing parameter type annotation")
         end
         local np, err = p:applyArgs(params, loc)
         if err ~= nil then
@@ -95,7 +96,7 @@ function TFunc:applyArgs(params, loc)
         fnParams[i] = np
     end
     if self.return_ == nil then
-        return nil, "missing return type annotation"
+        return nil, utils.locErr(self.location, "missing return type annotation")
     end
     local ret, err = self.return_:applyArgs(params, loc)
     if err ~= nil then

@@ -1,4 +1,5 @@
 local Type = require("lunar.compiler.ast.parsed.type").Type
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class TNamed : Type
 ---@field kind "TNamed"
@@ -62,21 +63,21 @@ function TNamed:normalize(modules, module, namedTypes)
             end
             args = string.format("[%s]", table.concat(parts, ", "))
         end
-        return nil, string.format("type `%s%s` not found", self.name, args)
+        return nil, utils.locErr(self.location, string.format("type `%s%s` not found", self.name, args))
     end
     if #ids > 1 then
-        return nil, string.format(
+        return nil, utils.locErr(self.location, string.format(
             "ambiguous type `%s`, it can be one of %s. " ..
             "Use import or qualified Name to clarify which one to use",
-            self.name, table.concat(ids, ", "))
+            self.name, table.concat(ids, ", ")))
     end
     if x == nil then
-        return nil, string.format("type `%s` not found", self.name)
+        return nil, utils.locErr(self.location, string.format("type `%s` not found", self.name))
     end
     if getmetatable(x) == TNamed then
         ---@cast x TNamed
         if x.name == self.name then
-            return nil, string.format("type `%s` aliased to itself", self.name)
+            return nil, utils.locErr(self.location, string.format("type `%s` aliased to itself", self.name))
         end
     end
     local nType, err2 = x:normalize(modules, module, namedTypes)

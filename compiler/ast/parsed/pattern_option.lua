@@ -1,6 +1,7 @@
 local Pattern = require("lunar.compiler.ast.parsed.pattern").Pattern
 local NPOption = require("lunar.compiler.ast.normalized.pattern_option").NPOption
 local joinErrorList = require("lunar.compiler.ast.parsed.defines").joinErrorList
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class POption : Pattern
 ---@field kind "POption"
@@ -47,12 +48,12 @@ end
 function POption:normalize(locals, modules, module, normalizedModule)
     local def, mod, ids = module:findDefinitionAndAddDependency(modules, self.name, normalizedModule)
     if ids == nil or #ids == 0 then
-        return nil, "data constructor not found"
+        return nil, utils.locErr(self.location, "data constructor not found")
     elseif #ids > 1 then
-        return nil, string.format(
+        return nil, utils.locErr(self.location, string.format(
             "ambiguous data constructor `%s`, it can be one of %s. " ..
             "Use import or qualified identifer to clarify which one to use",
-            self.name, table.concat(ids, ", "))
+            self.name, table.concat(ids, ", ")))
     end
     ---@cast def Definition
     ---@cast mod Module

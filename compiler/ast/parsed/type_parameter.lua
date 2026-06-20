@@ -1,5 +1,6 @@
 local Type = require("lunar.compiler.ast.parsed.type").Type
 local NTParameter = require("lunar.compiler.ast.normalized.type_parameter").NTParameter
+local utils = require("lunar.compiler.ast.parsed.utils")
 
 ---@class TParameter : Type
 ---@field kind "TParameter"
@@ -40,7 +41,7 @@ end
 function TParameter:applyArgs(params, loc)
     local p = params[self.name]
     if p == nil then
-        return nil, string.format("missing type parameter %s", self.name)
+        return nil, utils.locErr(loc or self.location, string.format("missing type parameter %s", self.name))
     end
     return p, nil
 end

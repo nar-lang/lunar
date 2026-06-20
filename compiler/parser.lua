@@ -198,7 +198,52 @@ end
 ---@param msg string
 ---@return string
 function Parser.newError(src, msg)
-    return msg .. " at " .. src.filePath .. ":" .. tostring(src.cursor)
+    local text = src.text
+    local len = #text
+    local offset = src.cursor
+    if offset > len then
+        offset = len
+    end
+    if offset < 1 then
+        offset = 1
+    end
+
+    if len == 0 then
+        return msg .. " at " .. src.filePath
+    end
+
+    local loc = Location.newCursor(src.filePath, text, offset)
+    local line = loc.startLine > 0 and loc.startLine or 1
+    local column = loc.startColumn > 0 and loc.startColumn or 1
+
+    -- Append a hint about the unexpected character/token, if any.
+    local hint = ""
+    if offset <= len then
+        local ch = text:sub(offset, offset)
+        if ch == "\n" or ch == "\r" then
+            hint = ", found end of line"
+        elseif ch:match("%S") then
+            local tokEnd = offset
+            while tokEnd <= len do
+                local b = text:sub(tokEnd, tokEnd)
+                if b:match("[%w_]") == nil then
+                    break
+                end
+                tokEnd = tokEnd + 1
+            end
+            local token
+            if tokEnd > offset then
+                token = text:sub(offset, tokEnd - 1)
+            else
+                token = ch
+            end
+            hint = ", found `" .. token .. "`"
+        end
+    else
+        hint = ", found end of file"
+    end
+
+    return string.format("%s%s at %s:%d:%d", msg, hint, src.filePath, line, column)
 end
 
 ---@param src ParserSource
@@ -2218,7 +2263,8 @@ function Parser.parseModule(src)
         end
 
         if Parser.isOk(src) then
-            errors[#errors + 1] = Parser.newError(src, "failed to parse statement")
+            errors[#errors + 1] = Parser.newError(src,
+                "expected top-level declaration (`alias`, `def`, `infix`, or `type`)")
             if Parser.skipToNextStatement(src) then
                 goto continueLoop
             end

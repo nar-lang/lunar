@@ -65,11 +65,12 @@ function Var:normalize(locals, modules, module, normalizedModule)
         end
         local access, err = varAccess:normalize(locals, modules, module, normalizedModule)
         if access == nil then
-            return nil, err
+            return nil, utils.locErr(self.location,
+                string.format("identifier `%s` not found", self.name))
         end
         return self:setSuccessor(access), nil
     end
-    return nil, string.format("identifier `%s` not found", self.name)
+    return nil, utils.locErr(self.location, string.format("identifier `%s` not found", self.name))
 end
 
 return { Var = Var }

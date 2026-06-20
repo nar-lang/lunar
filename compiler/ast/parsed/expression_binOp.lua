@@ -86,7 +86,7 @@ function BinOp:normalize(locals, modules, module, normalizedModule)
             ---@type InfixIdentifier|nil
             local o1infixOpt = o1.infix
             if o1infixOpt == nil then
-                return nil, "binop item has neither operand nor infix"
+                return nil, utils.locErr(self.location, "binop item has neither operand nor infix")
             end
             ---@type InfixIdentifier
             local o1infix = o1infixOpt

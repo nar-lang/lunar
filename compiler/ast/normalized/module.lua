@@ -111,13 +111,33 @@ end
 ---Idempotent: returns nil errors if already annotated.
 ---@param modules table<QualifiedIdentifier, NormModule>
 ---@param typedModules table<QualifiedIdentifier, TypedModule>
+---@param visiting {name: QualifiedIdentifier, viaIdent: Identifier|nil}[]|nil  DFS stack used for cycle detection
+---@param viaIdent Identifier|nil  identifier of `self` used by the caller (nil for root)
 ---@return string[]
-function NormModule:annotate(modules, typedModules)
+function NormModule:annotate(modules, typedModules, visiting, viaIdent)
     ---@type string[]
     local errors = {}
     if typedModules[self.name] ~= nil then
         return errors
     end
+
+    visiting = visiting or {}
+    for i, frame in ipairs(visiting) do
+        if frame.name == self.name then
+            -- Build the cycle path: visiting[i].name --(via)--> visiting[i+1].name --> ... --(viaIdent)--> self.name
+            local parts = { self.name }
+            for j = i + 1, #visiting do
+                parts[#parts + 1] = " --(" .. tostring(visiting[j].viaIdent or "?") .. ")--> "
+                parts[#parts + 1] = visiting[j].name
+            end
+            parts[#parts + 1] = " --(" .. tostring(viaIdent or "?") .. ")--> "
+            parts[#parts + 1] = self.name
+            errors[#errors + 1] = "circular module dependency: " ..
+                table.concat(parts)
+            return errors
+        end
+    end
+    visiting[#visiting + 1] = { name = self.name, viaIdent = viaIdent }
 
     -- Recursively annotate dependencies first. Iterate sorted for
     -- deterministic processing.
@@ -128,17 +148,23 @@ function NormModule:annotate(modules, typedModules)
             if depModule == nil then
                 errors[#errors + 1] = string.format(
                     "module dependency `%s` not found", tostring(depName))
+                visiting[#visiting] = nil
                 return errors
             end
-            local depErrors = depModule:annotate(modules, typedModules)
+            -- Pick one identifier of depModule that this module references.
+            local idents = self.dependencies[depName]
+            local depVia = idents and idents[1] or nil
+            local depErrors = depModule:annotate(modules, typedModules, visiting, depVia)
             if #depErrors > 0 then
                 for _, e in ipairs(depErrors) do
                     errors[#errors + 1] = e
                 end
+                visiting[#visiting] = nil
                 return errors
             end
         end
     end
+    visiting[#visiting] = nil
 
     local o = TypedModule.new(self.location, self.name, self.dependencies, nil)
     typedModules[self.name] = o

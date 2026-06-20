@@ -63,7 +63,7 @@ function Update:normalize(locals, modules, module, normalizedModule)
     if lc ~= nil then
         return self:setSuccessor(NUpdate.newLocal(self.location, localKey, lc, fields)), nil
     end
-    return nil, string.format("identifier `%s` not found", self.recordName)
+    return nil, utils.locErr(self.location, string.format("identifier `%s` not found", self.recordName))
 end
 
 return { Update = Update }

@@ -100,11 +100,12 @@ local function pathToUri(path)
 end
 
 -- ----------------------------------------------------------------------------
--- Document store + workspace index
+-- Document store + package store
 -- ----------------------------------------------------------------------------
 
--- Map of `path -> { text, version, parsedModule, parseErrors, fileContent }`.
--- `text` and `parsedModule.location.fileContent` are kept in sync.
+-- Map of `path -> { text, version, parsedModule, parseErrors, compileErrors,
+-- pkg, fileContent }`. `text` and `parsedModule.location.fileContent` are
+-- kept in sync. `pkg` is the owning package record (see below).
 local docs = {}
 
 -- Map of `moduleName -> path` so we can resolve cross-file definitions.
@@ -113,18 +114,133 @@ local moduleIndex = {}
 -- Recorded workspace roots (filesystem paths).
 local workspaceRoots = {}
 
--- Workspace-wide typed AST cache. These are lazily rebuilt on demand
--- whenever a navigation request needs semantic information. Any edit
--- invalidates the entire cache (cheap correctness; can optimize later).
-local typedDirty       = true
-local normalizedCache  = {} -- moduleName -> NormalizedModule
-local typedCache       = {} -- moduleName -> TypedModule
+-- Each `nar.json` defines one package. A package owns the `.nar` files
+-- under its directory (until a child manifest takes over) and declares
+-- a set of dependencies that scope its type-check universe.
+--
+-- pkg = {
+--   name, dir, manifestPath,
+--   deps      = { [depName] = url },
+--   revDeps   = { [pkgName] = true },     -- packages that depend on us
+--   paths     = { [path]    = true },     -- .nar files owned by this pkg
+--   normalizedCache = {},                 -- moduleName -> NormalizedModule
+--   typedCache      = {},                 -- moduleName -> TypedModule
+--   dirty           = true,                -- own files edited since last type
+--   version         = 0,                   -- bumped on every owned reparse
+--   depVersionsAtLastType = {},            -- depName -> version snapshot
+-- }
+local packagesByName = {}     -- name -> pkg
+local packagesByDir  = {}     -- dir  -> pkg
+
+-- Bumped on every reparse anywhere in the workspace; used to lazily
+-- invalidate the synthetic loose package without dirtying it eagerly.
+local parseGen = 0
+
+-- Files outside any nar.json fall into a synthetic package whose closure
+-- is "every parsed module currently in the workspace". This keeps
+-- ad-hoc / loose `.nar` files diagnosable without forcing a manifest.
+local loosePkg = {
+    name = "_loose", dir = nil, manifestPath = nil,
+    deps = {}, revDeps = {}, paths = {},
+    normalizedCache = {}, typedCache = {}, dirty = true,
+    version = 0, depVersionsAtLastType = {},
+    parseGenAtLastType = -1,
+}
+
+---Find the package owning `path` (deepest enclosing manifest dir), or
+---`loosePkg` if the file isn't under any manifest.
+---@param path string
+---@return table pkg
+local function pkgForPath(path)
+    local doc = docs[path]
+    if doc and doc.pkg then return doc.pkg end
+    local best, bestLen = nil, -1
+    for dir, pkg in pairs(packagesByDir) do
+        local prefix = dir .. "/"
+        if path:sub(1, #prefix) == prefix and #dir > bestLen then
+            best, bestLen = pkg, #dir
+        end
+    end
+    return best or loosePkg
+end
+
+---Mark `pkg` as having its own files edited. Drops only the changed
+---module's cached entries (so the next `ensureTyped` recomputes them);
+---other modules in the closure are preserved and reused — including
+---unchanged files in the same package and every dep module. Bumps the
+---package's version so reverse-deps detect the change lazily on their
+---next `ensureTyped` call. Reverse-deps are NOT touched here — that
+---would make every keystroke retype the entire dep cone.
+---@param pkg table|nil
+---@param changedModuleNames string[]|nil  module names to invalidate (nil => all)
+local function markPkgEdited(pkg, changedModuleNames)
+    if pkg == nil then return end
+    pkg.dirty = true
+    pkg.version = (pkg.version or 0) + 1
+    if changedModuleNames == nil then
+        -- Unknown scope (e.g. parse failure) — wipe everything for safety.
+        pkg.normalizedCache = {}
+        pkg.typedCache = {}
+        for path in pairs(pkg.paths) do
+            local e = docs[path]
+            if e ~= nil then e.compileErrors = nil end
+        end
+        return
+    end
+    -- Drop only the named modules' cached entries and any stored compile
+    -- errors anchored to their source files. Everything else (sibling
+    -- files in the same package, dep modules) is reused as-is.
+    local changedSet = {}
+    for _, name in ipairs(changedModuleNames) do
+        changedSet[name] = true
+        pkg.normalizedCache[name] = nil
+        pkg.typedCache[name] = nil
+    end
+    for path in pairs(pkg.paths) do
+        local e = docs[path]
+        if e ~= nil and e.parsedModule ~= nil
+           and changedSet[e.parsedModule.name] then
+            e.compileErrors = nil
+        end
+    end
+end
+
+---Has any of `pkg`'s declared deps been re-typed since the last time
+---we typed `pkg`? If yes, our cached typed entries for those dep
+---modules are stale and we need to recompute the closure.
+---@param pkg table
+---@return boolean
+local function depsChanged(pkg)
+    local snap = pkg.depVersionsAtLastType
+    if snap == nil then return true end
+    for depName in pairs(pkg.deps) do
+        local dep = packagesByName[depName]
+        if dep ~= nil and (snap[depName] or -1) ~= (dep.version or 0) then
+            return true
+        end
+    end
+    return false
+end
+
+---Tag `path`'s doc entry with its owning package and register the path
+---in that package's path set.
+---@param path string
+---@param pkg table
+local function attachPathToPkg(path, pkg)
+    local entry = docs[path]
+    if entry == nil then return end
+    if entry.pkg == pkg then return end
+    if entry.pkg ~= nil then entry.pkg.paths[path] = nil end
+    entry.pkg = pkg
+    pkg.paths[path] = true
+end
 
 ---Re-parse a single file's text and refresh its cache entry.
 ---@param path string
 ---@param text string
 local function reparse(path, text)
     local entry = docs[path] or {}
+    local oldModule = entry.parsedModule
     entry.text = text
     local m, errs = Compiler.parse(path, text)
     entry.parsedModule = m
@@ -137,34 +253,212 @@ local function reparse(path, text)
     if m ~= nil then
         moduleIndex[m.name] = path
     end
-    -- Any edit invalidates downstream semantic info.
-    typedDirty      = true
-    normalizedCache = {}
-    typedCache      = {}
+    -- Tag with its owning package on first parse; reuse existing tag
+    -- on subsequent edits.
+    if entry.pkg == nil then
+        attachPathToPkg(path, pkgForPath(path))
+    end
+    -- Mark only the owning package dirty. Reverse-deps stay as they are
+    -- and will lazily detect the bumped version when next consulted.
+    -- Drop only the changed module(s) from the cache so the rest of the
+    -- closure (deps + sibling files) is reused as-is.
+    local changed
+    if m ~= nil then
+        changed = { m.name }
+        if oldModule ~= nil and oldModule.name ~= m.name then
+            changed[#changed + 1] = oldModule.name
+        end
+    elseif oldModule ~= nil then
+        -- Parse failed: best-effort — invalidate the previous module name.
+        changed = { oldModule.name }
+    end
+    markPkgEdited(entry.pkg, changed)
+    parseGen = parseGen + 1
 end
 
----Ensure the normalize + annotate stages have been run for every parsed
----module currently in the workspace. Errors are swallowed: partial typed
----modules are still useful for navigation. Safe to call repeatedly — the
----compiler skips already-populated entries.
-local function ensureTyped()
-    if not typedDirty then return end
-    typedDirty = false
-    local parsedModules = {}
-    for _, entry in pairs(docs) do
-        local m = entry.parsedModule
-        if m ~= nil then
-            parsedModules[m.name] = m
+---Drop a file from every part of the LSP state — `docs`, `moduleIndex`,
+---its owning package's `paths` set + cache entries — and publish an
+---empty diagnostics array so the client clears the file from the
+---Problems view. Called when a file is deleted on disk or moved out of
+---the workspace.
+---@param path string
+local function forgetPath(path)
+    local entry = docs[path]
+    if entry == nil then return end
+    local pkg = entry.pkg
+    local moduleName = entry.parsedModule and entry.parsedModule.name or nil
+
+    -- Clear diagnostics for the deleted file before we drop its entry.
+    Transport.write({
+        jsonrpc = "2.0",
+        method  = "textDocument/publishDiagnostics",
+        params  = {
+            uri         = pathToUri(path),
+            diagnostics = Json.EMPTY_ARRAY,
+        },
+    })
+
+    -- Detach from owning package and invalidate just this module.
+    if pkg ~= nil then
+        pkg.paths[path] = nil
+        if moduleName ~= nil then
+            pkg.normalizedCache[moduleName] = nil
+            pkg.typedCache[moduleName] = nil
+        end
+        pkg.dirty = true
+        pkg.version = (pkg.version or 0) + 1
+    end
+
+    -- Drop from the global module-name index.
+    if moduleName ~= nil and moduleIndex[moduleName] == path then
+        moduleIndex[moduleName] = nil
+    end
+
+    docs[path] = nil
+    parseGen = parseGen + 1
+end
+
+---Build the set of parsed modules visible to `pkg`'s type-check pass:
+---its own modules plus the transitive closure of declared dependencies.
+---For the synthetic loose package the closure is every parsed module.
+---@param pkg table
+---@return table<string, table>
+local function buildClosureModules(pkg)
+    local out = {}
+    if pkg == loosePkg then
+        for _, e in pairs(docs) do
+            if e.parsedModule ~= nil then
+                out[e.parsedModule.name] = e.parsedModule
+            end
+        end
+        return out
+    end
+    local visited = {}
+    local function add(p)
+        if p == nil or visited[p.name] then return end
+        visited[p.name] = true
+        for path in pairs(p.paths) do
+            local e = docs[path]
+            if e ~= nil and e.parsedModule ~= nil then
+                out[e.parsedModule.name] = e.parsedModule
+            end
+        end
+        for depName in pairs(p.deps) do
+            add(packagesByName[depName])
         end
     end
-    -- The pipeline mutates `parsedModules` (calls `:generate`/`:normalize`
-    -- which can install fields on the parsed nodes). That is harmless.
-    pcall(Compiler.normalize, parsedModules, normalizedCache)
-    pcall(Compiler.annotate, normalizedCache, typedCache)
+    add(pkg)
+    return out
+end
+
+---Ensure normalize + annotate + validate have been run for `pkg`'s
+---closure. Errors are routed only to files OWNED by `pkg`; dep errors
+---will be attached when their own packages get type-checked.
+---
+---No-op when `pkg` is clean AND no declared dep has been re-typed
+---since the last pass — so editing a file in package A leaves package
+---B's typed cache untouched until B itself is queried.
+---@param pkg table|nil
+local function ensureTyped(pkg)
+    if pkg == nil then return end
+    local depsMoved = (pkg ~= loosePkg) and depsChanged(pkg)
+    local looseStale = (pkg == loosePkg) and (pkg.parseGenAtLastType ~= parseGen)
+    if not pkg.dirty and not depsMoved and not looseStale then return end
+
+    -- If a dep moved on, our cached typed entries for ITS modules are
+    -- stale. Drop just those; keep our own modules' entries so a body
+    -- edit elsewhere doesn't force a full closure rebuild here.
+    if depsMoved then
+        local depModuleNames = {}
+        local visited = {}
+        local function collect(p)
+            if p == nil or p == pkg or visited[p.name] then return end
+            visited[p.name] = true
+            for path in pairs(p.paths) do
+                local e = docs[path]
+                if e ~= nil and e.parsedModule ~= nil then
+                    depModuleNames[#depModuleNames + 1] = e.parsedModule.name
+                end
+            end
+            for depName in pairs(p.deps) do
+                collect(packagesByName[depName])
+            end
+        end
+        for depName in pairs(pkg.deps) do
+            collect(packagesByName[depName])
+        end
+        for _, n in ipairs(depModuleNames) do
+            pkg.normalizedCache[n] = nil
+            pkg.typedCache[n] = nil
+        end
+        -- Dep types might affect how our own modules type-check; drop
+        -- our own module entries too. Cheap-ish since we only do this
+        -- on the lazy first query after a dep edit.
+        for path in pairs(pkg.paths) do
+            local e = docs[path]
+            if e ~= nil then
+                e.compileErrors = nil
+                if e.parsedModule ~= nil then
+                    pkg.normalizedCache[e.parsedModule.name] = nil
+                    pkg.typedCache[e.parsedModule.name] = nil
+                end
+            end
+        end
+    end
+    if looseStale then
+        pkg.normalizedCache = {}
+        pkg.typedCache = {}
+        for path in pairs(pkg.paths) do
+            local e = docs[path]
+            if e ~= nil then e.compileErrors = nil end
+        end
+    end
+
+    pkg.dirty = false
+    pkg.depVersionsAtLastType = {}
+    for depName in pairs(pkg.deps) do
+        local dep = packagesByName[depName]
+        if dep ~= nil then
+            pkg.depVersionsAtLastType[depName] = dep.version or 0
+        end
+    end
+    pkg.parseGenAtLastType = parseGen
+
+    local parsedModules = buildClosureModules(pkg)
+    local function gather(stageOk, stageErrs)
+        if not stageOk or type(stageErrs) ~= "table" then return end
+        for _, e in ipairs(stageErrs) do
+            if type(e) == "string" then
+                -- Compile-stage errors carry `<file>:<line>:<col>: <msg>`.
+                local p = e:match("^(.-):%d+:%d+:")
+                if p ~= nil and pkg.paths[p] then
+                    local entry = docs[p]
+                    if entry ~= nil then
+                        entry.compileErrors = entry.compileErrors or {}
+                        entry.compileErrors[#entry.compileErrors + 1] = e
+                    end
+                end
+            end
+        end
+    end
+    gather(pcall(Compiler.normalize, parsedModules, pkg.normalizedCache))
+    gather(pcall(Compiler.annotate, pkg.normalizedCache, pkg.typedCache))
     -- Validation runs the Hindley-Milner unifier so that hover can render
     -- solved types (e.g. `Char` instead of `u_1`). Failures here are
     -- non-fatal: partial typing is still navigable.
-    pcall(Compiler.validate, typedCache)
+    gather(pcall(Compiler.validate, pkg.typedCache))
+end
+
+---Type-check every package whose state is currently dirty (or whose
+---deps have moved on). Used by request handlers that need a complete
+---workspace view (e.g. `references`).
+local function ensureTypedAll()
+    for _, p in pairs(packagesByName) do
+        ensureTyped(p)
+    end
+    if next(loosePkg.paths) ~= nil then
+        ensureTyped(loosePkg)
+    end
 end
 
 ---Walk `dir` recursively, returning every `.nar` file found.
@@ -174,7 +468,7 @@ end
 local function scanNarFiles(dir)
     local out = {}
     local cmd = string.format(
-        "find %q -type f -name '*.nar' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null",
+        "find %q -type f -name '*.nar' -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/.build/*' -not -path '*/_deps/*' 2>/dev/null",
         dir)
     local p = io.popen(cmd, "r")
     if p == nil then return out end
@@ -310,10 +604,58 @@ local function resolveDependencyDirs(roots)
     return discoveredDirs
 end
 
+---Parse a `nar.json` and register the resulting package by name + dir.
+---Returns the package record (creating it if new), or nil if the
+---manifest is unreadable / malformed.
+---@param manifestPath string
+---@return table|nil pkg
+local function registerManifest(manifestPath)
+    local text = readFile(manifestPath)
+    if text == nil then return nil end
+    local ok, parsed = pcall(Packages.parseJson, text)
+    if not ok or type(parsed) ~= "table" then return nil end
+    local name = parsed.name
+    if type(name) ~= "string" or name == "" then return nil end
+    local dir = manifestPath:gsub("/nar%.json$", "")
+    local existing = packagesByName[name]
+    if existing ~= nil then
+        -- Update deps in case the manifest changed since we last parsed it.
+        existing.deps = (type(parsed.dependencies) == "table") and parsed.dependencies or {}
+        return existing
+    end
+    local pkg = {
+        name = name, dir = dir, manifestPath = manifestPath,
+        deps = (type(parsed.dependencies) == "table") and parsed.dependencies or {},
+        revDeps = {}, paths = {},
+        normalizedCache = {}, typedCache = {}, dirty = true,
+        version = 0, depVersionsAtLastType = nil,
+        parseGenAtLastType = -1,
+    }
+    packagesByName[name] = pkg
+    packagesByDir[dir] = pkg
+    return pkg
+end
+
+---Recompute every package's `revDeps` set from declared `deps`.
+local function rebuildRevDeps()
+    for _, p in pairs(packagesByName) do p.revDeps = {} end
+    for _, p in pairs(packagesByName) do
+        for depName in pairs(p.deps) do
+            local dep = packagesByName[depName]
+            if dep ~= nil then dep.revDeps[p.name] = true end
+        end
+    end
+end
+
 ---Parse every `.nar` file under `root` into the document store.
 ---@param root string
 local function indexWorkspace(root)
     workspaceRoots[#workspaceRoots + 1] = root
+    -- Discover packages in this root first so reparse can tag each file
+    -- with its owning package on first parse.
+    for _, mpath in ipairs(scanManifests(root)) do
+        registerManifest(mpath)
+    end
     for _, path in ipairs(scanNarFiles(root)) do
         if docs[path] == nil then
             local content = readFile(path)
@@ -330,6 +672,7 @@ end
 ---@param roots string[]
 local function indexDependencies(roots)
     for _, dep in ipairs(resolveDependencyDirs(roots)) do
+        registerManifest(dep .. "/nar.json")
         for _, path in ipairs(scanNarFiles(dep)) do
             if docs[path] == nil then
                 local content = readFile(path)
@@ -339,6 +682,9 @@ local function indexDependencies(roots)
             end
         end
     end
+    -- Now that every package is known, link the dependency graph so
+    -- edits cascade through reverse-deps correctly.
+    rebuildRevDeps()
 end
 
 -- ----------------------------------------------------------------------------
@@ -351,9 +697,17 @@ end
 local function locToRange(loc)
     if loc == nil or loc.isEmpty == nil then return nil end
     if loc:isEmpty() then return nil end
+    -- Locations resolved outside the file (e.g. cursor sentinels) carry
+    -- `startLine = 0`; clamp to (0, 0) so the LSP client doesn't reject
+    -- the range with `line must be non-negative`.
+    local sl = math.max((loc.startLine   or 1) - 1, 0)
+    local sc = math.max((loc.startColumn or 1) - 1, 0)
+    local el = math.max((loc.endLine     or 1) - 1, sl)
+    local ec = math.max((loc.endColumn   or 1) - 1, 0)
+    if el == sl and ec < sc then ec = sc end
     return {
-        start   = { line = (loc.startLine or 1) - 1, character = (loc.startColumn or 1) - 1 },
-        ["end"] = { line = (loc.endLine   or 1) - 1, character = (loc.endColumn   or 1) - 1 },
+        start   = { line = sl, character = sc },
+        ["end"] = { line = el, character = ec },
     }
 end
 
@@ -797,10 +1151,11 @@ end
 ---@return SymbolEntry|nil sym
 ---@return table|nil localPatternIfLocal
 local function resolveAt(path, offset)
-    ensureTyped()
     local entry = docs[path]
     if entry == nil or entry.parsedModule == nil then return nil end
-    local tm = typedCache[entry.parsedModule.name]
+    local pkg = entry.pkg or loosePkg
+    ensureTyped(pkg)
+    local tm = pkg.typedCache[entry.parsedModule.name]
     if tm == nil then return nil end
     local node = findNodeAt(tm, path, offset)
     if node == nil then return nil end
@@ -813,7 +1168,7 @@ end
 ---@param target SymbolEntry
 ---@return table[] locations  list of LSP Location objects
 local function findReferences(target)
-    ensureTyped()
+    ensureTypedAll()
     local out = {}
     local function add(loc)
         local r = locToRange(loc)
@@ -827,7 +1182,8 @@ local function findReferences(target)
         local entry = docs[target.path]
         local tm
         if entry ~= nil and entry.parsedModule ~= nil then
-            tm = typedCache[entry.parsedModule.name]
+            local pkg = entry.pkg or loosePkg
+            tm = pkg.typedCache[entry.parsedModule.name]
         end
         if tm == nil then return out end
         local pat = target.raw
@@ -855,7 +1211,10 @@ local function findReferences(target)
         return out
     end
 
-    -- Global symbol: scan every typed module.
+    -- Global symbol: scan every file's typed module under its OWNING
+    -- package's typed cache. This dedupes naturally — a shared dep file
+    -- is walked exactly once (via its owning package), not once per
+    -- dependent package's view.
     local fqnModule = target.moduleName
     local fqnName   = target.name
     local function walk(n)
@@ -882,10 +1241,17 @@ local function findReferences(target)
             end
         end
     end
-    for _, tm in pairs(typedCache) do
-        for _, d in ipairs(tm.definitions or {}) do
-            for _, p in ipairs(d.params or {}) do walk(p) end
-            walk(d.body)
+    for _, entry in pairs(docs) do
+        local m = entry.parsedModule
+        if m ~= nil then
+            local pkg = entry.pkg or loosePkg
+            local tm = pkg.typedCache[m.name]
+            if tm ~= nil then
+                for _, d in ipairs(tm.definitions or {}) do
+                    for _, p in ipairs(d.params or {}) do walk(p) end
+                    walk(d.body)
+                end
+            end
         end
     end
     -- Always include the declaration site itself.
@@ -1000,19 +1366,39 @@ end
 -- Diagnostics
 -- ----------------------------------------------------------------------------
 
----Convert a `"msg at file:offset"` compiler error to an LSP diagnostic.
+---Convert a compiler error string to an LSP diagnostic. Recognised forms:
+---  * `<msg> at <file>:<line>:<col>`     -- parser errors (`Parser.newError`)
+---  * `<file>:<line>:<col>: <msg>`        -- compile errors (`utils.locErr`)
+---  * `<msg> at <file>:<offset>`          -- legacy parser format
 ---@param err string
 ---@param text string
 ---@return table
 local function diagnosticFromError(err, text)
-    local message, offset = err:match("^(.+) at .-:(%d+)$")
-    local pos
-    if offset ~= nil then
-        pos = offsetToPosition(text, tonumber(offset))
-    else
-        pos = { line = 0, character = 0 }
-        message = err
+    local message, lineStr, colStr
+
+    -- Parser-style "<msg> at <file>:<line>:<col>".
+    message, lineStr, colStr = err:match("^(.+) at .-:(%d+):(%d+)$")
+    if message == nil then
+        -- Compile-style "<file>:<line>:<col>: <msg>".
+        lineStr, colStr, message = err:match("^.-:(%d+):(%d+):%s*(.+)$")
     end
+
+    local pos
+    if lineStr ~= nil then
+        pos = { line = tonumber(lineStr) - 1, character = tonumber(colStr) - 1 }
+    else
+        local offset
+        message, offset = err:match("^(.+) at .-:(%d+)$")
+        if offset ~= nil then
+            pos = offsetToPosition(text, tonumber(offset))
+        else
+            pos = { line = 0, character = 0 }
+            message = err
+        end
+    end
+
+    if pos.line < 0 then pos.line = 0 end
+    if pos.character < 0 then pos.character = 0 end
     local endPos = { line = pos.line, character = pos.character + 1 }
     return {
         range    = { start = pos, ["end"] = endPos },
@@ -1022,16 +1408,26 @@ local function diagnosticFromError(err, text)
     }
 end
 
----Publish diagnostics for a single document URI.
----@param uri string
----@param path string
-local function publishDiagnostics(uri, path)
-    local entry = docs[path]
-    if entry == nil then return end
+---Build the diagnostic payload for one document.
+---@param entry table
+---@return table[]
+local function buildDiagnostics(entry)
     local diags = {}
     for _, err in ipairs(entry.parseErrors or {}) do
         diags[#diags + 1] = diagnosticFromError(err, entry.text)
     end
+    for _, err in ipairs(entry.compileErrors or {}) do
+        diags[#diags + 1] = diagnosticFromError(err, entry.text)
+    end
+    return diags
+end
+
+---Send a `textDocument/publishDiagnostics` notification for `uri` using
+---`entry`'s currently recorded errors.
+---@param uri string
+---@param entry table
+local function sendDiagnostics(uri, entry)
+    local diags = buildDiagnostics(entry)
     Transport.write({
         jsonrpc = "2.0",
         method  = "textDocument/publishDiagnostics",
@@ -1040,6 +1436,43 @@ local function publishDiagnostics(uri, path)
             diagnostics = (#diags == 0) and Json.EMPTY_ARRAY or diags,
         },
     })
+    entry._publishedSig = (#diags == 0) and "" or table.concat({
+        table.concat(entry.parseErrors or {}, "\n"),
+        table.concat(entry.compileErrors or {}, "\n"),
+    }, "\0")
+end
+
+---Publish diagnostics for `path` and refresh any other open document
+---whose error set changed as a side-effect of the latest type-check pass.
+---@param uri string
+---@param path string
+local function publishDiagnostics(uri, path)
+    -- Only re-type the package that owns the active file. Reverse-deps
+    -- stay as they are and will lazily refresh themselves on their own
+    -- next publish (see `depsChanged` in `ensureTyped`). This keeps
+    -- per-keystroke cost bounded to one package's closure instead of
+    -- the entire dep cone.
+    local entry = docs[path]
+    if entry ~= nil then
+        pcall(ensureTyped, entry.pkg or loosePkg)
+        sendDiagnostics(uri, entry)
+    end
+
+    -- Republish any other doc whose error signature changed since we
+    -- last published it. We don't proactively retype other packages,
+    -- so this only fires for files whose own package was type-checked
+    -- earlier and whose error set materialised after a previous pass.
+    for otherPath, otherEntry in pairs(docs) do
+        if otherPath ~= path then
+            local sig = table.concat({
+                table.concat(otherEntry.parseErrors or {}, "\n"),
+                table.concat(otherEntry.compileErrors or {}, "\n"),
+            }, "\0")
+            if sig ~= (otherEntry._publishedSig or "") then
+                sendDiagnostics(pathToUri(otherPath), otherEntry)
+            end
+        end
+    end
 end
 
 -- ----------------------------------------------------------------------------
@@ -1169,13 +1602,50 @@ handlers["textDocument/didSave"] = function(params)
 end
 
 handlers["textDocument/didClose"] = function(params)
-    -- Don't drop from the index: the file is still useful for cross-file
-    -- navigation. Just re-read from disk to discard any unsaved edits.
+    -- If the file is still on disk, just re-read it to discard any
+    -- unsaved edits (the file is still useful for cross-file navigation).
+    -- If it has been deleted from disk, drop it from the index entirely
+    -- and clear its diagnostics from the Problems view.
     local path = uriToPath(params.textDocument.uri)
     local content = readFile(path)
     if content ~= nil then
         reparse(path, content)
         publishDiagnostics(params.textDocument.uri, path)
+    else
+        forgetPath(path)
+    end
+end
+
+handlers["workspace/didChangeWatchedFiles"] = function(params)
+    -- File-system events delivered by the client. We only act on
+    -- deletions; creations and modifications are handled lazily via the
+    -- text-document handlers when the user opens / edits a file.
+    -- FileChangeType: 1 = Created, 2 = Changed, 3 = Deleted.
+    local changes = params and params.changes or {}
+    local touched = false
+    for _, change in ipairs(changes) do
+        if change.type == 3 and type(change.uri) == "string" then
+            local path = uriToPath(change.uri)
+            if docs[path] ~= nil then
+                forgetPath(path)
+                touched = true
+            end
+        end
+    end
+    -- Deleting a file may unblock or break diagnostics in other files in
+    -- the same package; refresh the open editors lazily.
+    if touched then
+        for path, entry in pairs(docs) do
+            local before = entry._publishedSig or ""
+            pcall(ensureTyped, entry.pkg or loosePkg)
+            local sig = table.concat({
+                table.concat(entry.parseErrors or {}, "\n"),
+                table.concat(entry.compileErrors or {}, "\n"),
+            }, "\0")
+            if sig ~= before then
+                sendDiagnostics(pathToUri(path), entry)
+            end
+        end
     end
 end
 
